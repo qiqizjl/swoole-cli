@@ -1,7 +1,7 @@
 --TEST--
 Test range() function
 --INI--
-serialize_precision=14
+precision=14
 --FILE--
 <?php
 

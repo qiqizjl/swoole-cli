@@ -1,9 +1,8 @@
 --TEST--
 PDO Common: extending PDO (4)
---EXTENSIONS--
-pdo
 --SKIPIF--
 <?php
+if (!extension_loaded('pdo')) die('skip');
 $dir = getenv('REDIR_TEST_DIR');
 if (false == $dir) die('skip no driver');
 require_once $dir . 'pdo_test.inc';
@@ -26,20 +25,20 @@ class PDOStatementX extends PDOStatement
 
     protected function __construct($dbh)
     {
-        $this->dbh = $dbh;
-        $this->setFetchMode(PDO::FETCH_ASSOC);
-        echo __METHOD__ . "()\n";
+    	$this->dbh = $dbh;
+    	$this->setFetchMode(PDO::FETCH_ASSOC);
+    	echo __METHOD__ . "()\n";
     }
 
     function __destruct()
     {
-        echo __METHOD__ . "()\n";
+    	echo __METHOD__ . "()\n";
     }
 
-    function execute($params = array()): bool
+    function execute($params = array())
     {
-        echo __METHOD__ . "()\n";
-        parent::execute();
+    	echo __METHOD__ . "()\n";
+		parent::execute();
     }
 }
 
@@ -47,13 +46,13 @@ class PDODatabase extends PDO
 {
     function __destruct()
     {
-        echo __METHOD__ . "()\n";
+    	echo __METHOD__ . "()\n";
     }
 
-    function query($sql, ...$rest): PDOStatement|false
+    function query($sql)
     {
-        echo __METHOD__ . "()\n";
-        return parent::query($sql);
+    	echo __METHOD__ . "()\n";
+    	return parent::query($sql);
     }
 }
 
@@ -82,7 +81,7 @@ var_dump(get_class($stmt->dbh));
 echo "===FOREACH===\n";
 
 foreach($stmt as $obj) {
-    var_dump($obj);
+	var_dump($obj);
 }
 
 echo "===DONE===\n";

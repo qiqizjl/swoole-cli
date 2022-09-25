@@ -1,9 +1,8 @@
 --TEST--
 PDO Common: Bug #39398 (Booleans are not automatically translated to integers)
---EXTENSIONS--
-pdo
 --SKIPIF--
 <?php
+if (!extension_loaded('pdo')) die('skip');
 $dir = getenv('REDIR_TEST_DIR');
 if (false == $dir) die('skip no driver');
 require_once $dir . 'pdo_test.inc';
@@ -24,6 +23,7 @@ $stmt->execute();
 
 var_dump($db->query("SELECT * FROM test")->fetchAll(PDO::FETCH_ASSOC));
 ?>
+===DONE===
 --EXPECT--
 array(1) {
   [0]=>
@@ -32,3 +32,4 @@ array(1) {
     string(1) "1"
   }
 }
+===DONE===

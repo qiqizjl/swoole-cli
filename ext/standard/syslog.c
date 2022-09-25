@@ -1,11 +1,13 @@
 /*
    +----------------------------------------------------------------------+
+   | PHP Version 7                                                        |
+   +----------------------------------------------------------------------+
    | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
-   | https://www.php.net/license/3_01.txt                                 |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -32,7 +34,8 @@
 #include "basic_functions.h"
 #include "php_ext_syslog.h"
 
-/* {{{ PHP_MINIT_FUNCTION */
+/* {{{ PHP_MINIT_FUNCTION
+ */
 PHP_MINIT_FUNCTION(syslog)
 {
 	/* error levels */
@@ -120,8 +123,14 @@ PHP_MSHUTDOWN_FUNCTION(syslog)
 	return SUCCESS;
 }
 
+void php_openlog(const char *ident, int option, int facility)
+{
+	openlog(ident, option, facility);
+	PG(have_called_openlog) = 1;
+}
 
-/* {{{ Open connection to system logger */
+/* {{{ proto bool openlog(string ident, int option, int facility)
+   Open connection to system logger */
 /*
    ** OpenLog("nettopp", $LOG_PID, $LOG_LOCAL1);
    ** Syslog($LOG_EMERG, "help me!")
@@ -151,12 +160,15 @@ PHP_FUNCTION(openlog)
 }
 /* }}} */
 
-/* {{{ Close connection to system logger */
+/* {{{ proto bool closelog(void)
+   Close connection to system logger */
 PHP_FUNCTION(closelog)
 {
-	ZEND_PARSE_PARAMETERS_NONE();
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 
-	php_closelog();
+	closelog();
 	if (BG(syslog_device)) {
 		free(BG(syslog_device));
 		BG(syslog_device)=NULL;
@@ -165,18 +177,20 @@ PHP_FUNCTION(closelog)
 }
 /* }}} */
 
-/* {{{ Generate a system log message */
+/* {{{ proto bool syslog(int priority, string message)
+   Generate a system log message */
 PHP_FUNCTION(syslog)
 {
 	zend_long priority;
-	zend_string *message;
+	char *message;
+	size_t message_len;
 
 	ZEND_PARSE_PARAMETERS_START(2, 2)
 		Z_PARAM_LONG(priority)
-		Z_PARAM_STR(message)
+		Z_PARAM_STRING(message, message_len)
 	ZEND_PARSE_PARAMETERS_END();
 
-	php_syslog_str(priority, message);
+	php_syslog(priority, "%s", message);
 	RETURN_TRUE;
 }
 /* }}} */

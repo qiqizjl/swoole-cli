@@ -1,11 +1,13 @@
 /*
   +----------------------------------------------------------------------+
+  | PHP Version 7                                                        |
+  +----------------------------------------------------------------------+
   | Copyright (c) The PHP Group                                          |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
   | available through the world-wide-web at the following url:           |
-  | https://www.php.net/license/3_01.txt                                 |
+  | http://www.php.net/license/3_01.txt.                                 |
   | If you did not receive a copy of the PHP license and are unable to   |
   | obtain it through the world-wide-web, please send a note to          |
   | license@php.net so we can mail you a copy immediately.               |
@@ -31,7 +33,7 @@ extern zend_module_entry zip_module_entry;
 #define ZIP_OVERWRITE ZIP_TRUNCATE
 #endif
 
-#define PHP_ZIP_VERSION "1.19.5"
+#define PHP_ZIP_VERSION "1.15.6"
 
 #define ZIP_OPENBASEDIR_CHECKPATH(filename) php_check_open_basedir(filename)
 
@@ -48,6 +50,9 @@ typedef struct _ze_zip_read_rsrc {
 	struct zip_stat sb;
 } zip_read_rsrc;
 
+#define ZIPARCHIVE_ME(name, arg_info, flags) {#name, c_ziparchive_ ##name, arg_info,(uint32_t) (sizeof(arg_info)/sizeof(struct _zend_arg_info)-1), flags },
+#define ZIPARCHIVE_METHOD(name)	ZEND_NAMED_FUNCTION(c_ziparchive_ ##name)
+
 /* Extends zend object */
 typedef struct _ze_zip_object {
 	struct zip *za;
@@ -56,15 +61,6 @@ typedef struct _ze_zip_object {
 	char *filename;
 	int filename_len;
 	int buffers_cnt;
-	zip_int64_t last_id;
-	int err_zip;
-	int err_sys;
-#ifdef HAVE_PROGRESS_CALLBACK
-	zval progress_callback;
-#endif
-#ifdef HAVE_CANCEL_CALLBACK
-	zval cancel_callback;
-#endif
 	zend_object zo;
 } ze_zip_object;
 
@@ -75,7 +71,7 @@ static inline ze_zip_object *php_zip_fetch_object(zend_object *obj) {
 #define Z_ZIP_P(zv) php_zip_fetch_object(Z_OBJ_P((zv)))
 
 php_stream *php_stream_zip_opener(php_stream_wrapper *wrapper, const char *path, const char *mode, int options, zend_string **opened_path, php_stream_context *context STREAMS_DC);
-php_stream *php_stream_zip_open(struct zip *arch, const char *path, const char *mode STREAMS_DC);
+php_stream *php_stream_zip_open(const char *filename, const char *path, const char *mode STREAMS_DC);
 
 extern const php_stream_wrapper php_stream_zip_wrapper;
 

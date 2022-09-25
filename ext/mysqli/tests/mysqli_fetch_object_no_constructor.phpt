@@ -1,9 +1,9 @@
 --TEST--
 mysqli_fetch_object() - calling constructor on class wo constructor
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 ?>
 --FILE--
@@ -58,7 +58,7 @@ object(mysqli_fetch_object_test)#%d (%d) {
 }
 
 Exception with mysqli. Note that at all other places we throws errors but no exceptions unless the error mode has been changed:
-Exception: mysqli_fetch_object(): Argument #3 ($constructor_args) must be empty when the specified class (mysqli_fetch_object_test) does not have a constructor
+Exception: Class mysqli_fetch_object_test does not have a constructor hence you cannot use ctor_params
 
 Fatal error with PHP (but no exception!):
 

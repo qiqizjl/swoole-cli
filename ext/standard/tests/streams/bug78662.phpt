@@ -26,7 +26,7 @@ var_dump(fwrite($f, "bar"));
 var_dump(fread($f, 100));
 ?>
 Done
---EXPECT--
+--EXPECTF--
 bool(false)
 bool(false)
 Done

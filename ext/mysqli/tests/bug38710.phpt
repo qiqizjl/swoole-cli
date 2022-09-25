@@ -1,9 +1,8 @@
 --TEST--
 Bug #38710 (data leakage because of nonexisting boundary checking in statements)
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
 require_once('skipifconnectfailure.inc');
 ?>
 --FILE--

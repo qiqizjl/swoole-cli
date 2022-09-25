@@ -8,36 +8,31 @@ precision=14
 <?php
 
 $a = array(
-    array(1,2,3),
-    "",
-    1,
-    2.5,
-    0,
-    "string",
-    "123",
-    "2.5",
-    NULL,
-    true,
-    false,
-    new stdclass,
-    array(),
-    -PHP_INT_MAX-1,
-    (string)(-PHP_INT_MAX-1),
+	array(1,2,3),
+	"",
+	1,
+	2.5,
+	0,
+	"string",
+	"123",
+	"2.5",
+	NULL,
+	true,
+	false,
+	new stdclass,
+	array(),
+	-PHP_INT_MAX-1,
+	(string)(-PHP_INT_MAX-1),
 );
 
 foreach ($a as $var) {
-    try {
-        $var--;
-    } catch (TypeError $e) {
-        echo $e->getMessage(), "\n";
-    }
-    var_dump($var);
+	$var--;
+	var_dump($var);
 }
 
 echo "Done\n";
 ?>
---EXPECT--
-Cannot decrement array
+--EXPECTF--
 array(3) {
   [0]=>
   int(1)
@@ -56,12 +51,10 @@ float(1.5)
 NULL
 bool(true)
 bool(false)
-Cannot decrement stdClass
-object(stdClass)#1 (0) {
+object(stdClass)#%d (0) {
 }
-Cannot decrement array
 array(0) {
 }
-float(-9.223372036854776E+18)
-float(-9.223372036854776E+18)
+float(-9.2233720368548E+18)
+float(-9.2233720368548E+18)
 Done

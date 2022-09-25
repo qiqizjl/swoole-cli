@@ -1,9 +1,9 @@
 --TEST--
 mysqli_fetch_field() - data types/field->type
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 ?>
 --FILE--
@@ -96,8 +96,18 @@ require_once('skipifconnectfailure.inc');
         MYSQLI_TYPE_GEOMETRY => 'MYSQLI_TYPE_GEOMETRY - TODO add testing',
     );
 
-    $datatypes[MYSQLI_TYPE_NEWDECIMAL] = array('DECIMAL', '1.1');
-    $datatypes[MYSQLI_TYPE_BIT] = array('BIT', 0);
+    if ($IS_MYSQLND) {
+        $version = 50007 + 1;
+    } else {
+        $version = mysqli_get_client_version();
+    }
+
+    if ($version > 50002) {
+        $datatypes[MYSQLI_TYPE_NEWDECIMAL] = array('DECIMAL', '1.1');
+        $datatypes[MYSQLI_TYPE_BIT] = array('BIT', 0);
+    } else {
+        $datatypes[MYSQLI_TYPE_DECIMAL] = array('DECIMAL', '1.1');
+    }
 
     foreach ($datatypes as $php_type => $datatype) {
         if (is_array($datatype))

@@ -1,8 +1,10 @@
 --TEST--
 Bug #30045 (Cannot pass big integers (> 2147483647) in SOAP requests)
---EXTENSIONS--
-soap
-simplexml
+--SKIPIF--
+<?php
+  if (!extension_loaded('soap')) die('skip soap extension not available');
+  if (!extension_loaded('simplexml')) die('skip simplexml extension not available');
+?>
 --INI--
 soap.wsdl_cache_enabled=1
 --FILE--
@@ -20,7 +22,7 @@ class LocalSoapClient extends SoapClient {
     $this->server->addFunction('foo');
   }
 
-  function __doRequest($request, $location, $action, $version, $one_way = 0): ?string {
+  function __doRequest($request, $location, $action, $version, $one_way = 0) {
     $xml = simplexml_load_string($request);
     echo $xml->children("http://schemas.xmlsoap.org/soap/envelope/")->Body->children("http://test-uri")->children()->param1->asXML(),"\n";
     unset($xml);
@@ -40,12 +42,12 @@ $soap = new LocalSoapClient(NULL, array("uri"=>"http://test-uri", "location"=>"t
 function test($type, $num) {
   global $soap;
   try {
-      printf("  %0.0f\n    ", $num);
-      $ret = $soap->foo($type, new SoapVar($num, $type));
-      printf("    %0.0f\n", $ret);
-    } catch (SoapFault $ex) {
-      var_dump($ex);
-    }
+	  printf("  %0.0f\n    ", $num);
+	  $ret = $soap->foo($type, new SoapVar($num, $type));
+	  printf("    %0.0f\n", $ret);
+	} catch (SoapFault $ex) {
+	  var_dump($ex);
+	}
 }
 /*
 echo "byte\n";

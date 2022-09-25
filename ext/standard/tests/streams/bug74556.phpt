@@ -15,7 +15,6 @@ var_dump(
     stream_socket_get_name($c, false)
 );
 unlink($sock);
-?>
 --EXPECT--
 bool(false)
 bool(false)

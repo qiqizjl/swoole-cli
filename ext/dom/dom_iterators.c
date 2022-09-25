@@ -1,11 +1,13 @@
 /*
    +----------------------------------------------------------------------+
+   | PHP Version 7                                                        |
+   +----------------------------------------------------------------------+
    | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
-   | https://www.php.net/license/3_01.txt                                 |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -20,7 +22,7 @@
 #endif
 
 #include "php.h"
-#if defined(HAVE_LIBXML) && defined(HAVE_DOM)
+#if HAVE_LIBXML && HAVE_DOM
 #include "php_dom.h"
 #include "dom_ce.h"
 
@@ -61,9 +63,9 @@ xmlNodePtr create_notation(const xmlChar *name, const xmlChar *ExternalID, const
 	xmlEntityPtr ret;
 
 	ret = (xmlEntityPtr) xmlMalloc(sizeof(xmlEntity));
-	memset(ret, 0, sizeof(xmlEntity));
-	ret->type = XML_NOTATION_NODE;
-	ret->name = xmlStrdup(name);
+    memset(ret, 0, sizeof(xmlEntity));
+    ret->type = XML_NOTATION_NODE;
+    ret->name = xmlStrdup(name);
 	ret->ExternalID = xmlStrdup(ExternalID);
 	ret->SystemID = xmlStrdup(SystemID);
 	ret->length = 0;
@@ -182,7 +184,7 @@ static void php_dom_iterator_move_forward(zend_object_iterator *iter) /* {{{ */
 	int previndex=0;
 	HashTable *nodeht;
 	zval *entry;
-	bool do_curobj_undef = 1;
+	zend_bool do_curobj_undef = 1;
 
 	php_dom_iterator *iterator = (php_dom_iterator *)iter;
 
@@ -250,8 +252,7 @@ static const zend_object_iterator_funcs php_dom_iterator_funcs = {
 	php_dom_iterator_current_key,
 	php_dom_iterator_move_forward,
 	NULL,
-	NULL,
-	NULL, /* get_gc */
+	NULL
 };
 
 zend_object_iterator *php_dom_get_iterator(zend_class_entry *ce, zval *object, int by_ref) /* {{{ */
@@ -271,7 +272,8 @@ zend_object_iterator *php_dom_get_iterator(zend_class_entry *ce, zval *object, i
 	iterator = emalloc(sizeof(php_dom_iterator));
 	zend_iterator_init(&iterator->intern);
 
-	ZVAL_OBJ_COPY(&iterator->intern.data, Z_OBJ_P(object));
+	Z_ADDREF_P(object);
+	ZVAL_OBJ(&iterator->intern.data, Z_OBJ_P(object));
 	iterator->intern.funcs = &php_dom_iterator_funcs;
 
 	ZVAL_UNDEF(&iterator->curobj);

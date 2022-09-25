@@ -1,16 +1,16 @@
 --TEST--
 Bug #38055 (Wrong interpretation of boolean parameters)
---EXTENSIONS--
-soap
+--SKIPIF--
+<?php require_once('skipif.inc'); ?>
 --INI--
 soap.wsdl_cache_enabled=0
 --FILE--
 <?php
 function Test($param) {
-    global $g1, $g2;
-    $g1 = $param->boolA;
-    $g2	= $param->boolB;
-    return 1;
+	global $g1, $g2;
+	$g1 = $param->boolA;
+	$g2	= $param->boolB;
+	return 1;
 }
 
 class TestSoapClient extends SoapClient {
@@ -20,7 +20,7 @@ class TestSoapClient extends SoapClient {
     $this->server->addFunction('Test');
   }
 
-  function __doRequest($request, $location, $action, $version, $one_way = 0): ?string {
+  function __doRequest($request, $location, $action, $version, $one_way = 0) {
     ob_start();
     $this->server->handle($request);
     $response = ob_get_contents();

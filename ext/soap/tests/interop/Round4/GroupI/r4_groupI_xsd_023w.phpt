@@ -1,7 +1,7 @@
 --TEST--
 SOAP Interop Round4 GroupI XSD 023 (php/wsdl): echoNestedComplexType
---EXTENSIONS--
-soap
+--SKIPIF--
+<?php require_once('skipif.inc'); ?>
 --INI--
 precision=14
 soap.wsdl_cache_enabled=0

@@ -41,6 +41,7 @@ var_dump(rmdir($subpath));
 remove_data("dir_cp932");
 
 ?>
+===DONE===
 --EXPECTF--
 bool(true)
 bool(true)
@@ -52,3 +53,4 @@ bool(true)
 string(%d) "%s\テストマルチバイト・パス42\テストマルチバイト・パス4"
 Active code page: %d
 bool(true)
+===DONE===

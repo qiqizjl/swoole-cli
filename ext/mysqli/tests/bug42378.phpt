@@ -1,9 +1,9 @@
 --TEST--
 Bug #42378 (bind_result memory exhaustion, SELECT column, FORMAT(...) AS _format)
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 ?>
 --INI--
@@ -182,7 +182,7 @@ memory_limit=83886080
 ?>
 --CLEAN--
 <?php
-	require_once("clean_table.inc");
+    require_once("clean_table.inc");
 ?>
 --EXPECT--
 FLOAT

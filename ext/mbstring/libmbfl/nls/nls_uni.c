@@ -1,3 +1,10 @@
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include <stddef.h>
+
+#include "mbfilter.h"
 #include "nls_uni.h"
 
 static const char *mbfl_language_uni_aliases[] = {"universal", NULL};

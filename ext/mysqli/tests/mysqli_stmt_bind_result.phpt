@@ -1,19 +1,32 @@
 --TEST--
 mysqli_stmt_bind_result()
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 ?>
 --FILE--
 <?php
     require_once("connect.inc");
+
+    $tmp    = NULL;
+    $link   = NULL;
+
+    if (!is_null($tmp = @mysqli_stmt_bind_result()))
+        printf("[001] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
+    if (!is_null($tmp = @mysqli_stmt_bind_result($link)))
+        printf("[002] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
     require('table.inc');
 
     $stmt = mysqli_stmt_init($link);
     if (!mysqli_stmt_prepare($stmt, "SELECT id, label FROM test ORDER BY id LIMIT 1"))
         printf("[002a] [%d] %s\n", mysqli_stmt_errno($stmt), mysqli_stmt_error($stmt));
+
+    if (!is_null($tmp = mysqli_stmt_bind_result($stmt)))
+        printf("[002b] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
 
     mysqli_stmt_close($stmt);
     $stmt = mysqli_stmt_init($link);
@@ -22,29 +35,20 @@ require_once('skipifconnectfailure.inc');
     $label = null;
     $foo = null;
 
-    try {
-        mysqli_stmt_bind_result($stmt, $id);
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    if (false !== ($tmp = mysqli_stmt_bind_result($stmt, $id)))
+        printf("[003] Expecting false, got %s/%s\n", gettype($tmp), $tmp);
 
     if (!mysqli_stmt_prepare($stmt, "SELECT id, label FROM test ORDER BY id LIMIT 1"))
         printf("[004] [%d] %s\n", mysqli_stmt_errno($stmt), mysqli_stmt_error($stmt));
 
-    try {
-        mysqli_stmt_bind_result($stmt, $id);
-    } catch (\ArgumentCountError $e) {
-        echo $e->getMessage() . PHP_EOL;
-    }
+    if (false !== ($tmp = mysqli_stmt_bind_result($stmt, $id)))
+        printf("[005] Expecting boolean/false, got %s/%s\n", gettype($tmp), $tmp);
 
     if (true !== ($tmp = mysqli_stmt_bind_result($stmt, $id, $label)))
         printf("[006] Expecting boolean/true, got %s/%s\n", gettype($tmp), $tmp);
 
-    try {
-        mysqli_stmt_bind_result($stmt, $id, $label, $foo);
-    } catch (\ArgumentCountError $e) {
-        echo $e->getMessage() . PHP_EOL;
-    }
+    if (false !== ($tmp = mysqli_stmt_bind_result($stmt, $id, $label, $foo)))
+        printf("[007] Expecting boolean/false, got %s/%s\n", gettype($tmp), $tmp);
 
     if (!mysqli_stmt_execute($stmt))
         printf("[008] [%d] %s\n", mysqli_stmt_errno($stmt), mysqli_stmt_error($stmt));
@@ -291,16 +295,18 @@ require_once('skipifconnectfailure.inc');
     if (mysqli_get_server_version($link) >= 50600)
         func_mysqli_stmt_bind_result($link, $engine, "s", "TIME", "13:31:34.123456", 1770, "13:31:34");
 
+    /* Check that the function alias exists. It's a deprecated function,
+    but we have not announce the removal so far, therefore we need to check for it */
+    if (!is_null($tmp = @mysqli_stmt_bind_result()))
+        printf("[3000] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
     $stmt = mysqli_stmt_init($link);
     if (!mysqli_stmt_prepare($stmt, "INSERT INTO test(id, label) VALUES (1000, 'z')"))
         printf("[3001] [%d] %s\n", mysqli_stmt_errno($stmt), mysqli_stmt_error($stmt));
 
     $id = null;
-    try {
-        mysqli_stmt_bind_result($stmt, $id);
-    } catch (\ArgumentCountError $e) {
-        $e->getMessage() . \PHP_EOL;
-    }
+    if (false !== @mysqli_stmt_bind_result($stmt, $id))
+        printf("[3002] Bind result should not be allowed");
 
     mysqli_stmt_close($stmt);
 
@@ -312,9 +318,14 @@ require_once('skipifconnectfailure.inc');
     require_once("clean_table.inc");
 ?>
 --EXPECTF--
-mysqli_stmt object is not fully initialized
-Number of bind variables doesn't match number of fields in prepared statement
-Number of bind variables doesn't match number of fields in prepared statement
+Warning: mysqli_stmt_bind_result() expects at least 2 parameters, 1 given in %s on line %d
+
+Warning: mysqli_stmt_bind_result(): invalid object or resource mysqli_stmt
+ in %s on line %d
+
+Warning: mysqli_stmt_bind_result(): Number of bind variables doesn't match number of fields in prepared statement in %s on line %d
+
+Warning: mysqli_stmt_bind_result(): Number of bind variables doesn't match number of fields in prepared statement in %s on line %d
 int(1)
 %s(1) "a"
 done!

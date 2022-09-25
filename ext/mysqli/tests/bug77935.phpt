@@ -1,13 +1,9 @@
 --TEST--
 Bug #77935: Crash in mysqlnd_fetch_stmt_row_cursor when calling an SP with a cursor
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
 require_once('skipifconnectfailure.inc');
-if (!$IS_MYSQLND) {
-    die("skip mysqlnd only test");
-}
 ?>
 --FILE--
 <?php
@@ -34,13 +30,6 @@ while ($row = $result->fetch_assoc()) {
     var_dump($row);
 }
 
-?>
---CLEAN--
-<?php
-require_once 'connect.inc';
-$link = new mysqli($host, $user, $passwd, $db, $port, $socket);
-$link->query('DROP PROCEDURE IF EXISTS testSp');
-$link->close();
 ?>
 --EXPECT--
 array(1) {

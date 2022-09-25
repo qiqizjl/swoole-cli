@@ -22,7 +22,6 @@ try {
 } catch (Throwable $e) {
     echo $e->getMessage();
 }
-?>
 --EXPECTF--
 array(3) {
   [0]=>
@@ -45,4 +44,4 @@ object(ArrayIterator)#1 (1) {
     int(3)
   }
 }
-test(): Argument #1 ($iterable) must be of type iterable, int given, called in %s on line %d
+Argument 1 passed to test() must be iterable, int given, called in %s on line %d

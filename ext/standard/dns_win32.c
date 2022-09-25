@@ -1,11 +1,13 @@
 /*
    +----------------------------------------------------------------------+
+   | PHP Version 7                                                        |
+   +----------------------------------------------------------------------+
    | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
-   | https://www.php.net/license/3_01.txt                                 |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -49,7 +51,7 @@ PHP_FUNCTION(dns_get_mx) /* {{{ */
 	PDNS_RECORD     pResult, pRec;          /* Pointer to DNS_RECORD structure */
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS(), "sz|z", &hostname, &hostname_len, &mx_list, &weight_list) == FAILURE) {
-		RETURN_THROWS();
+		return;
 	}
 
 	status = DnsQuery_A(hostname, DNS_TYPE_MX, DNS_QUERY_STANDARD, NULL, &pResult, NULL);
@@ -91,42 +93,42 @@ cleanup:
 }
 /* }}} */
 
-/* {{{ Check DNS records corresponding to a given Internet host name or IP address */
+/* {{{ proto bool dns_check_record(string host [, string type])
+   Check DNS records corresponding to a given Internet host name or IP address */
 PHP_FUNCTION(dns_check_record)
 {
-	char *hostname;
-	size_t hostname_len;
-	zend_string *rectype = NULL;
+	char *hostname, *rectype = NULL;
+	size_t hostname_len, rectype_len = 0;
 	int type = DNS_TYPE_MX;
 
 	DNS_STATUS      status;                 /* Return value of DnsQuery_A() function */
 	PDNS_RECORD     pResult;          /* Pointer to DNS_RECORD structure */
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|S", &hostname, &hostname_len, &rectype) == FAILURE) {
-		RETURN_THROWS();
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|s", &hostname, &hostname_len, &rectype, &rectype_len) == FAILURE) {
+		return;
 	}
 
 	if (hostname_len == 0) {
-		zend_argument_value_error(1, "cannot be empty");
-		RETURN_THROWS();
+		php_error_docref(NULL, E_WARNING, "Host cannot be empty");
+		RETURN_FALSE;
 	}
 
 	if (rectype) {
-		     if (zend_string_equals_literal_ci(rectype,     "A")) type = DNS_TYPE_A;
-		else if (zend_string_equals_literal_ci(rectype,    "NS")) type = DNS_TYPE_NS;
-		else if (zend_string_equals_literal_ci(rectype,    "MX")) type = DNS_TYPE_MX;
-		else if (zend_string_equals_literal_ci(rectype,   "PTR")) type = DNS_TYPE_PTR;
-		else if (zend_string_equals_literal_ci(rectype,   "ANY")) type = DNS_TYPE_ANY;
-		else if (zend_string_equals_literal_ci(rectype,   "SOA")) type = DNS_TYPE_SOA;
-		else if (zend_string_equals_literal_ci(rectype,   "TXT")) type = DNS_TYPE_TEXT;
-		else if (zend_string_equals_literal_ci(rectype, "CNAME")) type = DNS_TYPE_CNAME;
-		else if (zend_string_equals_literal_ci(rectype,  "AAAA")) type = DNS_TYPE_AAAA;
-		else if (zend_string_equals_literal_ci(rectype,   "SRV")) type = DNS_TYPE_SRV;
-		else if (zend_string_equals_literal_ci(rectype, "NAPTR")) type = DNS_TYPE_NAPTR;
-		else if (zend_string_equals_literal_ci(rectype,    "A6")) type = DNS_TYPE_A6;
+		     if (!strcasecmp("A",     rectype)) type = DNS_TYPE_A;
+		else if (!strcasecmp("NS",    rectype)) type = DNS_TYPE_NS;
+		else if (!strcasecmp("MX",    rectype)) type = DNS_TYPE_MX;
+		else if (!strcasecmp("PTR",   rectype)) type = DNS_TYPE_PTR;
+		else if (!strcasecmp("ANY",   rectype)) type = DNS_TYPE_ANY;
+		else if (!strcasecmp("SOA",   rectype)) type = DNS_TYPE_SOA;
+		else if (!strcasecmp("TXT",   rectype)) type = DNS_TYPE_TEXT;
+		else if (!strcasecmp("CNAME", rectype)) type = DNS_TYPE_CNAME;
+		else if (!strcasecmp("AAAA",  rectype)) type = DNS_TYPE_AAAA;
+		else if (!strcasecmp("SRV",   rectype)) type = DNS_TYPE_SRV;
+		else if (!strcasecmp("NAPTR", rectype)) type = DNS_TYPE_NAPTR;
+		else if (!strcasecmp("A6",    rectype)) type = DNS_TYPE_A6;
 		else {
-			zend_argument_value_error(2, "must be a valid DNS record type");
-			RETURN_THROWS();
+			php_error_docref(NULL, E_WARNING, "Type '%s' not supported", rectype);
+			RETURN_FALSE;
 		}
 	}
 
@@ -344,7 +346,8 @@ static void php_parserr(PDNS_RECORD pRec, int type_to_fetch, int store, int raw,
 }
 /* }}} */
 
-/* {{{ Get any Resource Record corresponding to a given Internet host name */
+/* {{{ proto array|false dns_get_record(string hostname [, int type[, array &authns[, array &addtl[, bool raw]]]])
+   Get any Resource Record corresponding to a given Internet host name */
 PHP_FUNCTION(dns_get_record)
 {
 	char *hostname;
@@ -352,35 +355,36 @@ PHP_FUNCTION(dns_get_record)
 	zend_long type_param = PHP_DNS_ANY;
 	zval *authns = NULL, *addtl = NULL;
 	int type, type_to_fetch, first_query = 1, store_results = 1;
-	bool raw = 0;
+	zend_bool raw = 0;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|lz!z!b",
 			&hostname, &hostname_len, &type_param, &authns, &addtl, &raw) == FAILURE) {
-		RETURN_THROWS();
+		return;
 	}
 
 	if (authns) {
 		authns = zend_try_array_init(authns);
 		if (!authns) {
-			RETURN_THROWS();
+			return;
 		}
 	}
 	if (addtl) {
 		addtl = zend_try_array_init(addtl);
 		if (!addtl) {
-			RETURN_THROWS();
+			return;
 		}
 	}
 
 	if (!raw) {
 		if ((type_param & ~PHP_DNS_ALL) && (type_param != PHP_DNS_ANY)) {
-			zend_argument_value_error(2, "must be a DNS_* constant");
-			RETURN_THROWS();
+			php_error_docref(NULL, E_WARNING, "Type '%ld' not supported", type_param);
+			RETURN_FALSE;
 		}
 	} else {
 		if ((type_param < 1) || (type_param > 0xFFFF)) {
-			zend_argument_value_error(2, "must be between 1 and 65535 when argument #5 ($raw) is true");
-			RETURN_THROWS();
+			php_error_docref(NULL, E_WARNING,
+				"Numeric DNS record type must be between 1 and 65535, '%ld' given", type_param);
+			RETURN_FALSE;
 		}
 	}
 

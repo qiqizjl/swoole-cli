@@ -13,7 +13,7 @@ if (empty($argv[1])) {
 }
 
 $p = new Preprocessor(__DIR__);
-$p->setPhpSrcDir('/home/htf/soft/php-8.1.8');
+$p->setPhpSrcDir('/Users/sean/Documents/php-work/swoole-cli-4.x/php-7.4.30');
 $p->setDockerVersion('1.4');
 $p->setSwooleDir('/home/htf/workspace/swoole');
 
@@ -21,7 +21,7 @@ $endCallback = function () {
 };
 
 if ($type == 'macos') {
-    define('WORKSPACE', '/Users/sean/Documents/php-work/swoole-cli');
+    define('WORKSPACE', '/Users/sean/Documents/php-work/swoole-cli-4.x');
     // $p->setWorkDir(WORKSPACE . '/cli-swoole');
     // $p->setExtraLdflags('-L/usr/lib -undefined dynamic_lookup -lwebp -licudata -licui18n -licuio');
     $p->setWorkDir(WORKSPACE.'/swoole-cli');
@@ -411,6 +411,7 @@ $p->addExtension((new Extension('xsl'))->withOptions('--with-xsl'));
 $p->addExtension((new Extension('gmp'))->withOptions('--with-gmp=/usr/gmp'));
 $p->addExtension((new Extension('exif'))->withOptions('--enable-exif'));
 $p->addExtension((new Extension('sodium'))->withOptions('--with-sodium'));
+$p->addExtension((new Extension('json'))->withOptions('--enable-json'));
 //$p->addExtension((new Extension('readline'))->withOptions('--with-libedit'));
 //$p->addExtension((new Extension('opcache'))->withOptions('--enable-opcache'));
 
@@ -434,6 +435,7 @@ $extAvailabled = [
     'swoole' => function ($p) {
         $p->addExtension((new Extension('swoole'))
             ->withOptions('--enable-swoole --enable-sockets --enable-mysqlnd --enable-swoole-curl --enable-cares')
+            ->withPeclVersion('4.8.12')
             ->withLicense('https://github.com/swoole/swoole-src/blob/master/LICENSE', Extension::LICENSE_APACHE2)
             ->withHomePage('https://github.com/swoole/swoole-src')
         );

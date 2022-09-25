@@ -1,11 +1,13 @@
 /*
    +----------------------------------------------------------------------+
+   | PHP Version 7                                                        |
+   +----------------------------------------------------------------------+
    | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
-   | https://www.php.net/license/3_01.txt                                 |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -21,11 +23,11 @@
 #define URL_DEFAULT_ARG_SEP "&"
 
 /* {{{ php_url_encode_hash */
-PHPAPI void php_url_encode_hash_ex(HashTable *ht, smart_str *formstr,
+PHPAPI int php_url_encode_hash_ex(HashTable *ht, smart_str *formstr,
 				const char *num_prefix, size_t num_prefix_len,
 				const char *key_prefix, size_t key_prefix_len,
 				const char *key_suffix, size_t key_suffix_len,
-			  zval *type, const char *arg_sep, int enc_type)
+			  zval *type, char *arg_sep, int enc_type)
 {
 	zend_string *key = NULL;
 	char *newprefix, *p;
@@ -33,11 +35,14 @@ PHPAPI void php_url_encode_hash_ex(HashTable *ht, smart_str *formstr,
 	size_t arg_sep_len, newprefix_len, prop_len;
 	zend_ulong idx;
 	zval *zdata = NULL;
-	ZEND_ASSERT(ht);
+
+	if (!ht) {
+		return FAILURE;
+	}
 
 	if (GC_IS_RECURSIVE(ht)) {
 		/* Prevent recursion */
-		return;
+		return SUCCESS;
 	}
 
 	if (!arg_sep) {
@@ -49,7 +54,7 @@ PHPAPI void php_url_encode_hash_ex(HashTable *ht, smart_str *formstr,
 	arg_sep_len = strlen(arg_sep);
 
 	ZEND_HASH_FOREACH_KEY_VAL(ht, idx, key, zdata) {
-		bool is_dynamic = 1;
+		zend_bool is_dynamic = 1;
 		if (Z_TYPE_P(zdata) == IS_INDIRECT) {
 			zdata = Z_INDIRECT_P(zdata);
 			if (Z_ISUNDEF_P(zdata)) {
@@ -143,9 +148,13 @@ PHPAPI void php_url_encode_hash_ex(HashTable *ht, smart_str *formstr,
 				*(p++) = 'B';
 				*p = '\0';
 			}
-			GC_TRY_PROTECT_RECURSION(ht);
+			if (!(GC_FLAGS(ht) & GC_IMMUTABLE)) {
+				GC_PROTECT_RECURSION(ht);
+			}
 			php_url_encode_hash_ex(HASH_OF(zdata), formstr, NULL, 0, newprefix, newprefix_len, "%5D", 3, (Z_TYPE_P(zdata) == IS_OBJECT ? zdata : NULL), arg_sep, enc_type);
-			GC_TRY_UNPROTECT_RECURSION(ht);
+			if (!(GC_FLAGS(ht) & GC_IMMUTABLE)) {
+				GC_UNPROTECT_RECURSION(ht);
+			}
 			efree(newprefix);
 		} else if (Z_TYPE_P(zdata) == IS_NULL || Z_TYPE_P(zdata) == IS_RESOURCE) {
 			/* Skip these types */
@@ -216,10 +225,13 @@ PHPAPI void php_url_encode_hash_ex(HashTable *ht, smart_str *formstr,
 			}
 		}
 	} ZEND_HASH_FOREACH_END();
+
+	return SUCCESS;
 }
 /* }}} */
 
-/* {{{ Generates a form-encoded query string from an associative array or object. */
+/* {{{ proto string http_build_query(mixed formdata [, string prefix [, string arg_separator [, int enc_type]]])
+   Generates a form-encoded query string from an associative array or object. */
 PHP_FUNCTION(http_build_query)
 {
 	zval *formdata;
@@ -232,11 +244,16 @@ PHP_FUNCTION(http_build_query)
 		Z_PARAM_ARRAY_OR_OBJECT(formdata)
 		Z_PARAM_OPTIONAL
 		Z_PARAM_STRING(prefix, prefix_len)
-		Z_PARAM_STRING_OR_NULL(arg_sep, arg_sep_len)
+		Z_PARAM_STRING(arg_sep, arg_sep_len)
 		Z_PARAM_LONG(enc_type)
-	ZEND_PARSE_PARAMETERS_END();
+	ZEND_PARSE_PARAMETERS_END_EX(RETURN_FALSE);
 
-	php_url_encode_hash_ex(HASH_OF(formdata), &formstr, prefix, prefix_len, NULL, 0, NULL, 0, (Z_TYPE_P(formdata) == IS_OBJECT ? formdata : NULL), arg_sep, (int)enc_type);
+	if (php_url_encode_hash_ex(HASH_OF(formdata), &formstr, prefix, prefix_len, NULL, 0, NULL, 0, (Z_TYPE_P(formdata) == IS_OBJECT ? formdata : NULL), arg_sep, (int)enc_type) == FAILURE) {
+		if (formstr.s) {
+			smart_str_free(&formstr);
+		}
+		RETURN_FALSE;
+	}
 
 	if (!formstr.s) {
 		RETURN_EMPTY_STRING();

@@ -16,6 +16,7 @@ $s = parse_ini_string("[foo]\nbar=42|>baz",true, \INI_SCANNER_TYPED);
 var_dump($s);
 
 ?>
+==DONE==
 --EXPECT--
 array(1) {
   ["foo"]=>
@@ -45,3 +46,4 @@ array(1) {
     string(2) "42"
   }
 }
+==DONE==

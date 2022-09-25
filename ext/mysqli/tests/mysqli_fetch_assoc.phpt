@@ -1,16 +1,25 @@
 --TEST--
 mysqli_fetch_assoc()
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 ?>
 --FILE--
 <?php
     require_once("connect.inc");
 
+    $tmp    = NULL;
+    $link   = NULL;
+
     // Note: no SQL type tests, internally the same function gets used as for mysqli_fetch_array() which does a lot of SQL type test
+
+    if (!is_null($tmp = @mysqli_fetch_assoc()))
+        printf("[001] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
+    if (!is_null($tmp = @mysqli_fetch_assoc($link)))
+        printf("[002] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
 
     require('table.inc');
     if (!$res = mysqli_query($link, "SELECT id, label FROM test ORDER BY id LIMIT 1")) {
@@ -51,11 +60,8 @@ require_once('skipifconnectfailure.inc');
 
     mysqli_free_result($res);
 
-    try {
-        mysqli_fetch_assoc($res);
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    if (false !== ($tmp = mysqli_fetch_assoc($res)))
+        printf("[008] Expecting false, got %s/%s\n", gettype($tmp), $tmp);
 
     mysqli_close($link);
 
@@ -65,7 +71,7 @@ require_once('skipifconnectfailure.inc');
 <?php
     require_once("clean_table.inc");
 ?>
---EXPECT--
+--EXPECTF--
 [005]
 array(2) {
   ["id"]=>
@@ -108,5 +114,6 @@ array(15) {
   ["-02"]=>
   string(1) "f"
 }
-mysqli_result object is already closed
+
+Warning: mysqli_fetch_assoc(): Couldn't fetch mysqli_result in %s on line %d
 done!

@@ -1,9 +1,8 @@
 --TEST--
 Bug #72701 mysqli_get_host_info() wrong output
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
 require_once('skipifconnectfailure.inc');
 require_once("connect.inc");
 
@@ -27,5 +26,7 @@ var_dump(preg_match(",(127.0.0.1|localhost) via .*,i", mysqli_get_host_info($con
 
 mysqli_close($con);
 ?>
+==DONE==
 --EXPECT--
 int(1)
+==DONE==

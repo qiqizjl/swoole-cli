@@ -18,14 +18,13 @@
 */
 
 #include "zend_extensions.h"
-#include "zend_system_id.h"
 
 ZEND_API zend_llist zend_extensions;
 ZEND_API uint32_t zend_extension_flags = 0;
 ZEND_API int zend_op_array_extension_handles = 0;
 static int last_resource_number;
 
-zend_result zend_load_extension(const char *path)
+int zend_load_extension(const char *path)
 {
 #if ZEND_EXTENSIONS_SUPPORT
 	DL_HANDLE handle;
@@ -41,13 +40,6 @@ zend_result zend_load_extension(const char *path)
 #endif
 		return FAILURE;
 	}
-#ifdef ZEND_WIN32
-	char *err;
-	if (!php_win32_image_compatible(handle, &err)) {
-		zend_error(E_CORE_WARNING, err);
-		return FAILURE;
-	}
-#endif
 	return zend_load_extension_handle(handle, path);
 #else
 	fprintf(stderr, "Extensions are not supported on this platform.\n");
@@ -59,7 +51,7 @@ zend_result zend_load_extension(const char *path)
 #endif
 }
 
-zend_result zend_load_extension_handle(DL_HANDLE handle, const char *path)
+int zend_load_extension_handle(DL_HANDLE handle, const char *path)
 {
 #if ZEND_EXTENSIONS_SUPPORT
 	zend_extension *new_extension;
@@ -134,8 +126,7 @@ zend_result zend_load_extension_handle(DL_HANDLE handle, const char *path)
 		return FAILURE;
 	}
 
-	zend_register_extension(new_extension, handle);
-	return SUCCESS;
+	return zend_register_extension(new_extension, handle);
 #else
 	fprintf(stderr, "Extensions are not supported on this platform.\n");
 /* See http://support.microsoft.com/kb/190351 */
@@ -147,7 +138,7 @@ zend_result zend_load_extension_handle(DL_HANDLE handle, const char *path)
 }
 
 
-void zend_register_extension(zend_extension *new_extension, DL_HANDLE handle)
+int zend_register_extension(zend_extension *new_extension, DL_HANDLE handle)
 {
 #if ZEND_EXTENSIONS_SUPPORT
 	zend_extension extension;
@@ -176,6 +167,8 @@ void zend_register_extension(zend_extension *new_extension, DL_HANDLE handle)
 	}
 	/*fprintf(stderr, "Loaded %s, version %s\n", extension.name, extension.version);*/
 #endif
+
+	return SUCCESS;
 }
 
 
@@ -188,7 +181,6 @@ static void zend_extension_shutdown(zend_extension *extension)
 #endif
 }
 
-/* int return due to zend linked list API */
 static int zend_extension_startup(zend_extension *extension)
 {
 #if ZEND_EXTENSIONS_SUPPORT
@@ -203,18 +195,20 @@ static int zend_extension_startup(zend_extension *extension)
 }
 
 
-void zend_startup_extensions_mechanism()
+int zend_startup_extensions_mechanism()
 {
 	/* Startup extensions mechanism */
 	zend_llist_init(&zend_extensions, sizeof(zend_extension), (void (*)(void *)) zend_extension_dtor, 1);
 	zend_op_array_extension_handles = 0;
 	last_resource_number = 0;
+	return SUCCESS;
 }
 
 
-void zend_startup_extensions()
+int zend_startup_extensions()
 {
 	zend_llist_apply_with_del(&zend_extensions, (int (*)(void *)) zend_extension_startup);
+	return SUCCESS;
 }
 
 
@@ -255,29 +249,19 @@ ZEND_API void zend_extension_dispatch_message(int message, void *arg)
 }
 
 
-ZEND_API int zend_get_resource_handle(const char *module_name)
+ZEND_API int zend_get_resource_handle(zend_extension *extension)
 {
 	if (last_resource_number<ZEND_MAX_RESERVED_RESOURCES) {
-		zend_add_system_entropy(module_name, "zend_get_resource_handle", &last_resource_number, sizeof(int));
+		extension->resource_number = last_resource_number;
 		return last_resource_number++;
 	} else {
 		return -1;
 	}
 }
 
-ZEND_API int zend_get_op_array_extension_handle(const char *module_name)
+ZEND_API int zend_get_op_array_extension_handle(void)
 {
-	int handle = zend_op_array_extension_handles++;
-	zend_add_system_entropy(module_name, "zend_get_op_array_extension_handle", &zend_op_array_extension_handles, sizeof(int));
-	return handle;
-}
-
-ZEND_API int zend_get_op_array_extension_handles(const char *module_name, int handles)
-{
-	int handle = zend_op_array_extension_handles;
-	zend_op_array_extension_handles += handles;
-	zend_add_system_entropy(module_name, "zend_get_op_array_extension_handle", &zend_op_array_extension_handles, sizeof(int));
-	return handle;
+	return zend_op_array_extension_handles++;
 }
 
 ZEND_API zend_extension *zend_get_extension(const char *extension_name)

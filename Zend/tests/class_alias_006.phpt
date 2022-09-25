@@ -3,12 +3,8 @@ Testing creation of alias to an internal class
 --FILE--
 <?php
 
-try {
-    class_alias('stdclass', 'foo');
-} catch (ValueError $exception) {
-    echo $exception->getMessage() . "\n";
-}
+class_alias('stdclass', 'foo');
 
 ?>
---EXPECT--
-class_alias(): Argument #1 ($class) must be a user-defined class name, internal class name given
+--EXPECTF--
+Warning: First argument of class_alias() must be a name of user defined class in %s on line %d

@@ -7,7 +7,7 @@
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
   | available through the world-wide-web at the following url:           |
-  | https://www.php.net/license/3_01.txt                                 |
+  | http://www.php.net/license/3_01.txt.                                 |
   | If you did not receive a copy of the PHP license and are unable to   |
   | obtain it through the world-wide-web, please send a note to          |
   | license@php.net so we can mail you a copy immediately.               |
@@ -90,7 +90,7 @@ php_url* phar_parse_url(php_stream_wrapper *wrapper, const char *filename, const
 	resource->path = zend_string_init(entry, entry_len, 0);
 	efree(entry);
 
-#ifdef MBO_0
+#if MBO_0
 		if (resource) {
 			fprintf(stderr, "Alias:     %s\n", alias);
 			fprintf(stderr, "Scheme:    %s\n", ZSTR_VAL(resource->scheme));
@@ -223,10 +223,13 @@ static php_stream * phar_wrapper_open_url(php_stream_wrapper *wrapper, const cha
 				idata->internal_file->flags |= Z_LVAL_P(pzoption);
 			}
 			if ((pzoption = zend_hash_str_find(pharcontext, "metadata", sizeof("metadata")-1)) != NULL) {
-				phar_metadata_tracker_free(&idata->internal_file->metadata_tracker, idata->internal_file->is_persistent);
+				if (Z_TYPE(idata->internal_file->metadata) != IS_UNDEF) {
+					zval_ptr_dtor(&idata->internal_file->metadata);
+					ZVAL_UNDEF(&idata->internal_file->metadata);
+				}
 
 				metadata = pzoption;
-				ZVAL_COPY_DEREF(&idata->internal_file->metadata_tracker.val, metadata);
+				ZVAL_COPY_DEREF(&idata->internal_file->metadata, metadata);
 				idata->phar->is_modified = 1;
 			}
 		}
@@ -296,7 +299,7 @@ idata_error:
 		}
 	}
 	php_url_free(resource);
-#ifdef MBO_0
+#if MBO_0
 		fprintf(stderr, "Pharname:   %s\n", idata->phar->filename);
 		fprintf(stderr, "Filename:   %s\n", internal_file);
 		fprintf(stderr, "Entry:      %s\n", idata->internal_file->filename);
@@ -315,7 +318,7 @@ idata_error:
 		return NULL;
 	}
 
-	if (!PHAR_G(cwd_init) && (options & STREAM_OPEN_FOR_INCLUDE)) {
+	if (!PHAR_G(cwd_init) && options & STREAM_OPEN_FOR_INCLUDE) {
 		char *entry = idata->internal_file->filename, *cwd;
 
 		PHAR_G(cwd_init) = 1;
@@ -480,7 +483,7 @@ static int phar_stream_flush(php_stream *stream) /* {{{ */
 /**
  * stat an opened phar file handle stream, used by phar_stat()
  */
-void phar_dostat(phar_archive_data *phar, phar_entry_info *data, php_stream_statbuf *ssb, bool is_temp_dir)
+void phar_dostat(phar_archive_data *phar, phar_entry_info *data, php_stream_statbuf *ssb, zend_bool is_temp_dir)
 {
 	memset(ssb, 0, sizeof(php_stream_statbuf));
 
@@ -843,7 +846,7 @@ static int phar_wrapper_rename(php_stream_wrapper *wrapper, const char *url_from
 		/* mark the old one for deletion */
 		entry->is_deleted = 1;
 		entry->fp = NULL;
-		ZVAL_UNDEF(&entry->metadata_tracker.val);
+		ZVAL_UNDEF(&entry->metadata);
 		entry->link = entry->tmp = NULL;
 		source = entry;
 

@@ -1,9 +1,11 @@
 /*
    +----------------------------------------------------------------------+
+   | PHP Version 7                                                        |
+   +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
-   | https://www.php.net/license/3_01.txt                                 |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -18,12 +20,17 @@
 
 #include "php_intl.h"
 #include "msgformat_class.h"
+#include "msgformat_attr.h"
 #include "msgformat_data.h"
 #include "intl_convert.h"
 
 #include <unicode/ustring.h>
 
-/* {{{ Get formatter pattern. */
+/* {{{ proto string MessageFormatter::getPattern( )
+ * Get formatter pattern. }}} */
+/* {{{ proto string msgfmt_get_pattern( MessageFormatter $mf )
+ * Get formatter pattern.
+ */
 PHP_FUNCTION( msgfmt_get_pattern )
 {
 	MSG_FORMAT_METHOD_INIT_VARS;
@@ -31,7 +38,9 @@ PHP_FUNCTION( msgfmt_get_pattern )
 	/* Parse parameters. */
 	if( zend_parse_method_parameters( ZEND_NUM_ARGS(), getThis(), "O", &object, MessageFormatter_ce_ptr ) == FAILURE )
 	{
-		RETURN_THROWS();
+		intl_error_set(NULL, U_ILLEGAL_ARGUMENT_ERROR,
+			"msgfmt_get_pattern: unable to parse input params", 0 );
+		RETURN_FALSE;
 	}
 
 	/* Fetch the object. */
@@ -45,7 +54,11 @@ PHP_FUNCTION( msgfmt_get_pattern )
 }
 /* }}} */
 
-/* {{{ Set formatter pattern. */
+/* {{{ proto bool MessageFormatter::setPattern( string $pattern )
+ * Set formatter pattern. }}} */
+/* {{{ proto bool msgfmt_set_pattern( MessageFormatter $mf, string $pattern )
+ * Set formatter pattern.
+ */
 PHP_FUNCTION( msgfmt_set_pattern )
 {
 	char*       value = NULL;
@@ -58,7 +71,9 @@ PHP_FUNCTION( msgfmt_set_pattern )
 	if( zend_parse_method_parameters( ZEND_NUM_ARGS(), getThis(), "Os",
 		&object, MessageFormatter_ce_ptr, &value, &value_len ) == FAILURE )
 	{
-		RETURN_THROWS();
+		intl_error_set(NULL, U_ILLEGAL_ARGUMENT_ERROR,
+			"msgfmt_set_pattern: unable to parse input params", 0);
+		RETURN_FALSE;
 	}
 
 	MSG_FORMAT_METHOD_FETCH_OBJECT;
@@ -98,7 +113,11 @@ PHP_FUNCTION( msgfmt_set_pattern )
 }
 /* }}} */
 
-/* {{{ Get formatter locale. */
+/* {{{ proto string MessageFormatter::getLocale()
+ * Get formatter locale. }}} */
+/* {{{ proto string msgfmt_get_locale(MessageFormatter $mf)
+ * Get formatter locale.
+ */
 PHP_FUNCTION( msgfmt_get_locale )
 {
 	char *loc;
@@ -108,7 +127,10 @@ PHP_FUNCTION( msgfmt_get_locale )
 	if( zend_parse_method_parameters( ZEND_NUM_ARGS(), getThis(), "O",
 		&object, MessageFormatter_ce_ptr ) == FAILURE )
 	{
-		RETURN_THROWS();
+		intl_error_set( NULL, U_ILLEGAL_ARGUMENT_ERROR,
+			"msgfmt_get_locale: unable to parse input params", 0 );
+
+		RETURN_FALSE;
 	}
 
 	/* Fetch the object. */

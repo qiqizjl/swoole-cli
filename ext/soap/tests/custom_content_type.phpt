@@ -1,13 +1,15 @@
 --TEST--
 SOAP customized Content-Type, eg. SwA use case
---EXTENSIONS--
-soap
 --SKIPIF--
 <?php
-    if (!file_exists(__DIR__ . "/../../../sapi/cli/tests/php_cli_server.inc")) {
-        echo "skip sapi/cli/tests/php_cli_server.inc required but not found";
-    }
+	require_once('skipif.inc');
+
+	if (!file_exists(__DIR__ . "/../../../sapi/cli/tests/php_cli_server.inc")) {
+		echo "skip sapi/cli/tests/php_cli_server.inc required but not found";
+	}
 ?>
+--CONFLICTS--
+server
 --FILE--
 <?php
 
@@ -71,6 +73,8 @@ if (strpos($headers, 'Content-Type: application/soap+xml; charset=utf-8; action=
 else
   printf("Content-Type Default OK" . PHP_EOL);
 ?>
+==DONE==
 --EXPECT--
 Content-Type OK
 Content-Type Default OK
+==DONE==

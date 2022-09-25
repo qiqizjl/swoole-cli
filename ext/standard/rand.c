@@ -1,11 +1,13 @@
 /*
    +----------------------------------------------------------------------+
+   | PHP Version 7                                                        |
+   +----------------------------------------------------------------------+
    | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
-   | https://www.php.net/license/3_01.txt                                 |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -26,21 +28,24 @@
 #include "php_rand.h"
 #include "php_mt_rand.h"
 
-/* {{{ php_srand */
+/* {{{ php_srand
+ */
 PHPAPI void php_srand(zend_long seed)
 {
 	php_mt_srand(seed);
 }
 /* }}} */
 
-/* {{{ php_rand */
+/* {{{ php_rand
+ */
 PHPAPI zend_long php_rand(void)
 {
 	return php_mt_rand();
 }
 /* }}} */
 
-/* {{{ Returns a random number from Mersenne Twister */
+/* {{{ proto int mt_rand([int min, int max])
+   Returns a random number from Mersenne Twister */
 PHP_FUNCTION(rand)
 {
 	zend_long min;

@@ -1,7 +1,11 @@
 --TEST--
 Test curl_version() basic functionality
---EXTENSIONS--
-curl
+--SKIPIF--
+<?php
+    if (!extension_loaded("curl")) {
+        exit("skip curl extension not loaded");
+    }
+?>
 --FILE--
 <?php
     $info_curl = curl_version();

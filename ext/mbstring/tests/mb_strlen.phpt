@@ -1,7 +1,9 @@
 --TEST--
 mb_strlen()
---EXTENSIONS--
-mbstring
+--SKIPIF--
+<?php extension_loaded('mbstring') or die('skip mbstring not available'); ?>
+--INI--
+mbstring.func_overload=0
 --FILE--
 <?php
 // TODO: Add more encodings
@@ -53,16 +55,22 @@ print  strlen($utf8) . "\n";
 
 // Wrong Parameters
 echo "== WRONG PARAMETERS ==\n";
+// Array
+// Note: PHP Warning, strlen() expects parameter 1 to be string, array given
+$r = strlen($t_ary);
+echo $r."\n";
+// Object
+// Note: PHP Warning, strlen() expects parameter 1 to be string, object given
+$r = strlen($t_obj);
+echo $r."\n";
 // Wrong encoding
 mb_internal_encoding('EUC-JP');
-try {
-    var_dump( mb_strlen($euc_jp, 'BAD_NAME') );
-} catch (\ValueError $e) {
-    echo $e->getMessage() . \PHP_EOL;
-}
+$r = mb_strlen($euc_jp, 'BAD_NAME');
+echo $r."\n";
+
 
 ?>
---EXPECT--
+--EXPECTF--
 == ASCII ==
 40
 40
@@ -79,4 +87,11 @@ try {
 43
 101
 == WRONG PARAMETERS ==
-mb_strlen(): Argument #2 ($encoding) must be a valid encoding, "BAD_NAME" given
+
+Warning: strlen() expects parameter 1 to be string, array given in %s on line %d
+
+
+Warning: strlen() expects parameter 1 to be string, object given in %s on line %d
+
+
+Warning: mb_strlen(): Unknown encoding "BAD_NAME" in %s on line %d

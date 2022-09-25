@@ -1,9 +1,9 @@
 --TEST--
 Persistent connections and mysqli.max_links
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+    require_once('skipif.inc');
+    require_once('skipifemb.inc');
     require_once('skipifconnectfailure.inc');
     require_once('table.inc');
 
@@ -59,11 +59,7 @@ mysqli.rollback_on_cached_plink=1
             mysqli_errno($plink), mysqli_error($plink));
     }
 
-    try {
-        mysqli_get_links_stats(1);
-    } catch (ArgumentCountError $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    var_dump(mysqli_get_links_stats(1));
 
     echo "Before pconnect:";
     var_dump(mysqli_get_links_stats());
@@ -198,7 +194,7 @@ if (!$link = my_mysqli_connect($host, $user, $passwd, $db, $port, $socket))
    printf("[c001] [%d] %s\n", mysqli_connect_errno(), mysqli_connect_error());
 
 if (!mysqli_query($link, "DROP TABLE IF EXISTS test"))
-	printf("[c002] Cannot drop table, [%d] %s\n", mysqli_errno($link), mysqli_error($link));
+    printf("[c002] Cannot drop table, [%d] %s\n", mysqli_errno($link), mysqli_error($link));
 
 mysqli_query($link, 'REVOKE ALL PRIVILEGES, GRANT OPTION FROM pcontest');
 mysqli_query($link, 'REVOKE ALL PRIVILEGES, GRANT OPTION FROM pcontest@localhost');
@@ -207,8 +203,9 @@ mysqli_query($link, 'DROP USER pcontest');
 
 mysqli_close($link);
 ?>
---EXPECT--
-mysqli_get_links_stats() expects exactly 0 arguments, 1 given
+--EXPECTF--
+Warning: mysqli_get_links_stats(): no parameters expected in %s on line %d
+NULL
 Before pconnect:array(3) {
   ["total"]=>
   int(1)

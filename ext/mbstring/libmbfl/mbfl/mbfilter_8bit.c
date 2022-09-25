@@ -28,6 +28,10 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <stddef.h>
 
 #include "mbfilter.h"
@@ -43,7 +47,7 @@ const mbfl_encoding mbfl_encoding_8bit = {
 	mbfl_no_encoding_8bit,
 	"8bit",
 	"8bit",
-	mbfl_encoding_8bit_aliases,
+	(const char *(*)[])&mbfl_encoding_8bit_aliases,
 	NULL,
 	MBFL_ENCTYPE_SBCS,
 	&vtbl_8bit_wchar,
@@ -54,20 +58,18 @@ const struct mbfl_convert_vtbl vtbl_8bit_wchar = {
 	mbfl_no_encoding_8bit,
 	mbfl_no_encoding_wchar,
 	mbfl_filt_conv_common_ctor,
-	NULL,
+	mbfl_filt_conv_common_dtor,
 	mbfl_filt_conv_8bit_wchar,
-	mbfl_filt_conv_common_flush,
-	NULL,
+	mbfl_filt_conv_common_flush
 };
 
 const struct mbfl_convert_vtbl vtbl_wchar_8bit = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_8bit,
 	mbfl_filt_conv_common_ctor,
-	NULL,
+	mbfl_filt_conv_common_dtor,
 	mbfl_filt_conv_wchar_8bit,
-	mbfl_filt_conv_common_flush,
-	NULL,
+	mbfl_filt_conv_common_flush
 };
 
 #define CK(statement) do { if ((statement) < 0) return (-1); } while (0)
@@ -85,5 +87,5 @@ static int mbfl_filt_conv_wchar_8bit(int c, mbfl_convert_filter *filter)
 		CK(mbfl_filt_conv_illegal_output(c, filter));
 	}
 
-	return 0;
+	return c;
 }

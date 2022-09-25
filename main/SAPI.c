@@ -1,11 +1,13 @@
 /*
    +----------------------------------------------------------------------+
+   | PHP Version 7                                                        |
+   +----------------------------------------------------------------------+
    | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
-   | https://www.php.net/license/3_01.txt                                 |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -54,7 +56,7 @@ static void _type_dtor(zval *zv)
 static void sapi_globals_ctor(sapi_globals_struct *sapi_globals)
 {
 	memset(sapi_globals, 0, sizeof(*sapi_globals));
-	zend_hash_init(&sapi_globals->known_post_content_types, 8, NULL, _type_dtor, 1);
+	zend_hash_init_ex(&sapi_globals->known_post_content_types, 8, NULL, _type_dtor, 1, 0);
 	php_setup_sapi_content_types();
 }
 
@@ -109,14 +111,18 @@ SAPI_API void sapi_free_header(sapi_header_struct *sapi_header)
 	efree(sapi_header->header);
 }
 
-/* {{{ call a header function */
+/* {{{ proto bool header_register_callback(mixed callback)
+   call a header function */
 PHP_FUNCTION(header_register_callback)
 {
-	zend_fcall_info fci;
-	zend_fcall_info_cache fcc;
+	zval *callback_func;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "f", &fci, &fcc) == FAILURE) {
-		RETURN_THROWS();
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "z", &callback_func) == FAILURE) {
+		return;
+	}
+
+	if (!zend_is_callable(callback_func, 0, NULL)) {
+		RETURN_FALSE;
 	}
 
 	if (Z_TYPE(SG(callback_func)) != IS_UNDEF) {
@@ -124,11 +130,7 @@ PHP_FUNCTION(header_register_callback)
 		SG(fci_cache) = empty_fcall_info_cache;
 	}
 
-	/* Don't store callback if headers have already been sent:
-	 * It won't get used and we won't have a chance to release it. */
-	if (!SG(headers_sent)) {
-		ZVAL_COPY(&SG(callback_func), &fci.function_name);
-	}
+	ZVAL_COPY(&SG(callback_func), callback_func);
 
 	RETURN_TRUE;
 }
@@ -344,7 +346,7 @@ SAPI_API char *sapi_get_default_content_type(void)
 
 SAPI_API void sapi_get_default_content_type_header(sapi_header_struct *default_header)
 {
-	uint32_t len;
+    uint32_t len;
 
 	default_header->header = get_default_content_type(sizeof("Content-type: ")-1, &len);
 	default_header->header_len = len;
@@ -579,8 +581,8 @@ static void sapi_update_response_code(int ncode)
 }
 
 /*
- * since zend_llist_del_element only removes one matched item once,
- * we should remove them manually
+ * since zend_llist_del_element only remove one matched item once,
+ * we should remove them by ourself
  */
 static void sapi_remove_header(zend_llist *l, char *name, size_t len) {
 	sapi_header_struct *header;
@@ -610,7 +612,7 @@ static void sapi_remove_header(zend_llist *l, char *name, size_t len) {
 	}
 }
 
-SAPI_API int sapi_add_header_ex(const char *header_line, size_t header_line_len, bool duplicate, bool replace)
+SAPI_API int sapi_add_header_ex(char *header_line, size_t header_line_len, zend_bool duplicate, zend_bool replace)
 {
 	sapi_header_line ctr = {0};
 	int r;
@@ -622,7 +624,7 @@ SAPI_API int sapi_add_header_ex(const char *header_line, size_t header_line_len,
 			&ctr);
 
 	if (!duplicate)
-		efree((void *) header_line);
+		efree(header_line);
 
 	return r;
 }
@@ -682,7 +684,7 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg)
 				if (!p->line || !p->line_len) {
 					return FAILURE;
 				}
-				header_line = estrndup(p->line, p->line_len);
+				header_line = p->line;
 				header_line_len = p->line_len;
 				http_response_code = p->response_code;
 				break;
@@ -698,6 +700,8 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg)
 		default:
 			return FAILURE;
 	}
+
+	header_line = estrndup(header_line, header_line_len);
 
 	/* cut off trailing spaces, linefeeds and carriage-returns */
 	if (header_line_len && isspace(header_line[header_line_len-1])) {
@@ -764,6 +768,13 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg)
 				while (*ptr == ' ') {
 					ptr++;
 					len--;
+				}
+
+				/* Disable possible output compression for images */
+				if (!strncmp(ptr, "image/", sizeof("image/")-1)) {
+					zend_string *key = zend_string_init("zlib.output_compression", sizeof("zlib.output_compression")-1, 0);
+					zend_alter_ini_entry_chars(key, "0", sizeof("0") - 1, PHP_INI_USER, PHP_INI_STAGE_RUNTIME);
+					zend_string_release_ex(key, 0);
 				}
 
 				mimetype = estrdup(ptr);
@@ -973,7 +984,7 @@ SAPI_API int sapi_register_treat_data(void (*treat_data)(int arg, char *str, zva
 	return SUCCESS;
 }
 
-SAPI_API int sapi_register_input_filter(unsigned int (*input_filter)(int arg, const char *var, char **val, size_t val_len, size_t *new_val_len), unsigned int (*input_filter_init)(void))
+SAPI_API int sapi_register_input_filter(unsigned int (*input_filter)(int arg, char *var, char **val, size_t val_len, size_t *new_val_len), unsigned int (*input_filter_init)(void))
 {
 	if (SG(sapi_started) && EG(current_execute_data)) {
 		return FAILURE;
@@ -1005,7 +1016,7 @@ SAPI_API zend_stat_t *sapi_get_stat(void)
 	}
 }
 
-SAPI_API char *sapi_getenv(const char *name, size_t name_len)
+SAPI_API char *sapi_getenv(char *name, size_t name_len)
 {
 	if (!strncasecmp(name, "HTTP_PROXY", name_len)) {
 		/* Ugly fix for HTTP_PROXY issue, see bug #72573 */
@@ -1092,10 +1103,10 @@ SAPI_API void sapi_terminate_process(void) {
 	}
 }
 
-SAPI_API void sapi_add_request_header(const char *var, unsigned int var_len, char *val, unsigned int val_len, void *arg) /* {{{ */
+SAPI_API void sapi_add_request_header(char *var, unsigned int var_len, char *val, unsigned int val_len, void *arg) /* {{{ */
 {
 	zval *return_value = (zval*)arg;
-	char *buf = NULL;
+	char *str = NULL;
 
 	ALLOCA_FLAG(use_heap)
 
@@ -1106,12 +1117,11 @@ SAPI_API void sapi_add_request_header(const char *var, unsigned int var_len, cha
 	    var[3] == 'P' &&
 	    var[4] == '_') {
 
-		const char *p;
-		char *str;
+		char *p;
 
 		var_len -= 5;
 		p = var + 5;
-		var = str = buf = do_alloca(var_len + 1, use_heap);
+		var = str = do_alloca(var_len + 1, use_heap);
 		*str++ = *p++;
 		while (*p) {
 			if (*p == '_') {
@@ -1137,8 +1147,8 @@ SAPI_API void sapi_add_request_header(const char *var, unsigned int var_len, cha
 		return;
 	}
 	add_assoc_stringl_ex(return_value, var, var_len, val, val_len);
-	if (buf) {
-		free_alloca(buf, use_heap);
+	if (str) {
+		free_alloca(var, use_heap);
 	}
 }
 /* }}} */

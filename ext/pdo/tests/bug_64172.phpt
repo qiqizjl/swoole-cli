@@ -1,9 +1,8 @@
 --TEST--
 PDO Common: Bug #64172 errorInfo is not properly cleaned up
---EXTENSIONS--
-pdo
 --SKIPIF--
 <?php
+if (!extension_loaded('pdo')) die('skip');
 $dir = getenv('REDIR_TEST_DIR');
 if (false == $dir) die('skip no driver');
 require_once $dir . 'pdo_test.inc';
@@ -46,6 +45,7 @@ var_dump($db->errorInfo());
 
 $db->exec("DROP TABLE test");
 ?>
+===DONE===
 --EXPECTF--
 ===FAIL===
 
@@ -81,3 +81,4 @@ array(3) {
   [2]=>
   NULL
 }
+===DONE===

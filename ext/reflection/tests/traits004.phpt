@@ -16,7 +16,6 @@ for ($c = "C1"; $c <= "C3"; $c++) {
     var_dump($r->getTraits());
     echo "\n";
 }
-?>
 --EXPECT--
 class C1:
 array(0) {

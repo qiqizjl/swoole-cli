@@ -30,7 +30,7 @@ $testClassInstance->prop = "Hello";
 echo "invoke() on a non-object:\n";
 try {
     var_dump($foo->invoke(true));
-} catch (TypeError $e) {
+} catch (ReflectionException $e) {
     var_dump($e->getMessage());
 }
 
@@ -42,7 +42,11 @@ try {
 }
 
 echo "\nPrivate method:\n";
-var_dump($privateMethod->invoke($testClassInstance));
+try {
+    var_dump($privateMethod->invoke($testClassInstance));
+} catch (ReflectionException $e) {
+    var_dump($e->getMessage());
+}
 
 echo "\nAbstract method:\n";
 $abstractMethod = new ReflectionMethod("AbstractClass::foo");
@@ -53,16 +57,17 @@ try {
 }
 
 ?>
---EXPECT--
+--EXPECTF--
 invoke() on a non-object:
-string(85) "ReflectionMethod::invoke(): Argument #1 ($object) must be of type ?object, bool given"
+
+Warning: ReflectionMethod::invoke() expects parameter 1 to be object, bool given in %s%eReflectionMethod_invoke_error1.php on line %d
+NULL
 
 invoke() on a non-instance:
 string(72) "Given object is not an instance of the class this method was declared in"
 
 Private method:
-Called privateMethod()
-NULL
+string(86) "Trying to invoke private method TestClass::privateMethod() from scope ReflectionMethod"
 
 Abstract method:
 string(53) "Trying to invoke abstract method AbstractClass::foo()"

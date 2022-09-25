@@ -1,9 +1,8 @@
 --TEST--
 Bug #68077 (LOAD DATA LOCAL INFILE / open_basedir restriction)
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
 require_once('skipifconnectfailure.inc');
 if (!$IS_MYSQLND) {
     die("skip: test applies only to mysqlnd");
@@ -66,12 +65,12 @@ open_basedir=
 require_once('connect.inc');
 
 if (!$link = my_mysqli_connect($host, $user, $passwd, $db, $port, $socket)) {
-	printf("[clean] Cannot connect to the server using host=%s, user=%s, passwd=***, dbname=%s, port=%s, socket=%s\n",
-		$host, $user, $db, $port, $socket);
+    printf("[clean] Cannot connect to the server using host=%s, user=%s, passwd=***, dbname=%s, port=%s, socket=%s\n",
+        $host, $user, $db, $port, $socket);
 }
 
 if (!$link->query($link, 'DROP TABLE IF EXISTS test')) {
-	printf("[clean] Failed to drop old test table: [%d] %s\n", mysqli_errno($link), mysqli_error($link));
+    printf("[clean] Failed to drop old test table: [%d] %s\n", mysqli_errno($link), mysqli_error($link));
 }
 
 $link->close();

@@ -1,9 +1,9 @@
 --TEST--
 mysqli_stmt_fetch()
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 ?>
 --FILE--
@@ -15,17 +15,23 @@ require_once('skipifconnectfailure.inc');
     */
     require_once("connect.inc");
 
+    $tmp    = NULL;
+    $link   = NULL;
+
+    if (!is_null($tmp = @mysqli_stmt_fetch()))
+        printf("[001] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
+    if (!is_null($tmp = @mysqli_stmt_fetch($link)))
+        printf("[002] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
     require('table.inc');
 
     if (!$stmt = mysqli_stmt_init($link))
         printf("[003] [%d] %s\n", mysqli_errno($link), mysqli_error($link));
 
     // stmt object status test
-    try {
-        mysqli_stmt_fetch($stmt);
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    if (false !== ($tmp = mysqli_stmt_fetch($stmt)))
+        printf("[004] Expecting false, got %s/%s\n", gettype($tmp), $tmp);
 
     if (!mysqli_stmt_prepare($stmt, "SELECT id, label FROM test ORDER BY id LIMIT 2"))
         printf("[005] [%d] %s\n", mysqli_stmt_errno($stmt), mysqli_stmt_error($stmt));
@@ -67,13 +73,15 @@ require_once('skipifconnectfailure.inc');
 
     mysqli_stmt_close($stmt);
 
-    try {
-        mysqli_stmt_fetch($stmt);
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    if (false !== ($tmp = mysqli_stmt_fetch($stmt)))
+        printf("[016] Expecting false, got %s/%s\n", gettype($tmp), $tmp);
 
     mysqli_close($link);
+
+    /* Check that the function alias exists. It's a deprecated function,
+    but we have not announce the removal so far, therefore we need to check for it */
+    if (!is_null($tmp = @mysqli_stmt_fetch()))
+        printf("[017] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
 
     print "done!";
 ?>
@@ -82,7 +90,9 @@ require_once('skipifconnectfailure.inc');
     require_once("clean_table.inc");
 ?>
 --EXPECTF--
-mysqli_stmt object is not fully initialized
+Warning: mysqli_stmt_fetch(): invalid object or resource mysqli_stmt
+ in %s on line %d
 [014] [%d] Commands out of sync; you can't run this command now
-mysqli_stmt object is already closed
+
+Warning: mysqli_stmt_fetch(): Couldn't fetch mysqli_stmt in %s on line %d
 done!

@@ -15,6 +15,8 @@ foreach ($file as $line) {
     echo $line;
 }
 ?>
+===DONE===
 --EXPECT--
 \
 "\"""
+===DONE===

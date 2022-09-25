@@ -1,9 +1,8 @@
 --TEST--
 PDO Common: fetch() and while()
---EXTENSIONS--
-pdo
 --SKIPIF--
 <?php
+if (!extension_loaded('pdo')) die('skip');
 $dir = getenv('REDIR_TEST_DIR');
 if (false == $dir) die('skip no driver');
 require_once $dir . 'pdo_test.inc';
@@ -37,7 +36,7 @@ $stmt->bindColumn('txt', $txt);
 $stmt->execute();
 
 while($stmt->fetch(PDO::FETCH_BOUND)) {
-    var_dump(array($idx=>$txt));
+	var_dump(array($idx=>$txt));
 }
 
 ?>

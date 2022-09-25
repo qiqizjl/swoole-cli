@@ -1,7 +1,7 @@
 --TEST--
 Bug #65045: mb_convert_encoding breaks well-formed character
---EXTENSIONS--
-mbstring
+--SKIPIF--
+<?php extension_loaded('mbstring') or die('skip mbstring not available'); ?>
 --FILE--
 <?php
 
@@ -21,7 +21,6 @@ var_dump(
     $expected === mb_convert_encoding($str, 'UTF-8', 'UTF-8'),
     $expected2 === mb_convert_encoding($str2, 'UTF-8', 'UTF-8')
 );
-?>
 --EXPECT--
 bool(true)
 bool(true)

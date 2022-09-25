@@ -1,11 +1,13 @@
 /*
   +----------------------------------------------------------------------+
+  | PHP Version 7                                                        |
+  +----------------------------------------------------------------------+
   | Copyright (c) The PHP Group                                          |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
   | available through the world-wide-web at the following url:           |
-  | https://www.php.net/license/3_01.txt                                 |
+  | http://www.php.net/license/3_01.txt                                  |
   | If you did not receive a copy of the PHP license and are unable to   |
   | obtain it through the world-wide-web, please send a note to          |
   | license@php.net so we can mail you a copy immediately.               |
@@ -23,7 +25,7 @@
 # undef AF_UNIX
 #endif
 
-#ifdef AF_UNIX
+#if defined(AF_UNIX)
 #include <sys/un.h>
 #endif
 
@@ -75,8 +77,7 @@ retry:
 	if (didwrite <= 0) {
 		char *estr;
 		int err = php_socket_errno();
-
-		if (PHP_IS_TRANSIENT_ERROR(err)) {
+		if (err == EWOULDBLOCK || err == EAGAIN) {
 			if (sock->is_blocked) {
 				int retval;
 
@@ -104,13 +105,10 @@ retry:
 			}
 		}
 
-		if (!(stream->flags & PHP_STREAM_FLAG_SUPPRESS_ERRORS)) {
-			estr = php_socket_strerror(err, NULL, 0);
-			php_error_docref(NULL, E_NOTICE,
-				"Send of " ZEND_LONG_FMT " bytes failed with errno=%d %s",
+		estr = php_socket_strerror(err, NULL, 0);
+		php_error_docref(NULL, E_NOTICE, "send of " ZEND_LONG_FMT " bytes failed with errno=%d %s",
 				(zend_long)count, err, estr);
-			efree(estr);
-		}
+		efree(estr);
 	}
 
 	if (didwrite > 0) {
@@ -163,14 +161,14 @@ static ssize_t php_sockop_read(php_stream *stream, char *buf, size_t count)
 	if (sock->is_blocked) {
 		php_sock_stream_wait_for_data(stream, sock);
 		if (sock->timeout_event)
-			return -1;
+			return 0;
 	}
 
 	nr_bytes = recv(sock->socket, buf, XP_SOCK_BUF_SIZE(count), (sock->is_blocked && sock->timeout.tv_sec != -1) ? MSG_DONTWAIT : 0);
 	err = php_socket_errno();
 
 	if (nr_bytes < 0) {
-		if (PHP_IS_TRANSIENT_ERROR(err)) {
+		if (err == EAGAIN || err == EWOULDBLOCK) {
 			nr_bytes = 0;
 		} else {
 			stream->eof = 1;
@@ -241,7 +239,7 @@ static int php_sockop_flush(php_stream *stream)
 
 static int php_sockop_stat(php_stream *stream, php_stream_statbuf *ssb)
 {
-#ifdef ZEND_WIN32
+#if ZEND_WIN32
 	return 0;
 #else
 	php_netstream_data_t *sock = (php_netstream_data_t*)stream->abstract;
@@ -453,11 +451,12 @@ static int php_sockop_set_option(php_stream *stream, int option, int value, void
 #endif
 
 				default:
-					break;
+					return PHP_STREAM_OPTION_RETURN_NOTIMPL;
 			}
-	}
 
-	return PHP_STREAM_OPTION_RETURN_NOTIMPL;
+		default:
+			return PHP_STREAM_OPTION_RETURN_NOTIMPL;
+	}
 }
 
 static int php_sockop_cast(php_stream *stream, int castas, void **ret)
@@ -816,7 +815,7 @@ static inline int php_tcp_sockop_accept(php_stream *stream, php_netstream_data_t
 		php_stream_xport_param *xparam STREAMS_DC)
 {
 	int clisock;
-	bool nodelay = 0;
+	zend_bool nodelay = 0;
 	zval *tmpzval = NULL;
 
 	xparam->outputs.client = NULL;

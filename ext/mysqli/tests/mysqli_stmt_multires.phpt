@@ -1,9 +1,8 @@
 --TEST--
 Multiple result set with PS
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
 require_once("connect.inc");
 if (!$IS_MYSQLND) {
     die("skip mysqlnd only test");
@@ -95,10 +94,10 @@ require_once('skipifconnectfailure.inc');
 ?>
 --CLEAN--
 <?php
-require_once 'connect.inc';
-$link = new mysqli($host, $user, $passwd, $db, $port, $socket);
-$link->query('DROP PROCEDURE IF EXISTS p123');
-$link->close();
+    require_once("connect.inc");
+    if (!$link->query('DROP PROCEDURE IF EXISTS p123')) {
+        printf("[001] [%d] %s\n", $link->error, $link->errno);
+    }
 ?>
 --EXPECT--
 string(4) "pre:"

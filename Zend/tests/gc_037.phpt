@@ -11,7 +11,6 @@ var_dump(gc_status());
 gc_collect_cycles();
 gc_collect_cycles();
 var_dump(gc_status());
-?>
 --EXPECT--
 array(4) {
   ["runs"]=>

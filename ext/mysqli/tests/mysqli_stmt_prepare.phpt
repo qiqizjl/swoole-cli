@@ -1,9 +1,9 @@
 --TEST--
 mysqli_stmt_prepare()
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 ?>
 --FILE--
@@ -16,10 +16,22 @@ require_once('skipifconnectfailure.inc');
     // fetch tests, because the fetch tests would have to call prepare/execute etc.
     // anyway.
 
+    $tmp    = NULL;
+    $link   = NULL;
+
+    if (!is_null($tmp = @mysqli_stmt_prepare()))
+        printf("[001] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
+    if (!is_null($tmp = @mysqli_stmt_prepare($link)))
+        printf("[002] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
     require('table.inc');
 
     if (!$stmt = mysqli_stmt_init($link))
         printf("[003] [%d] %s\n", mysqli_errno($link), mysqli_error($link));
+
+    if (NULL !== ($tmp = @mysqli_stmt_prepare($stmt)))
+        printf("[004] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
 
     if (false !== ($tmp = mysqli_stmt_prepare($stmt, '')))
         printf("[005] Expecting boolean/false, got %s/%s\n", gettype($tmp), $tmp);
@@ -29,11 +41,8 @@ require_once('skipifconnectfailure.inc');
 
     mysqli_stmt_close($stmt);
 
-    try {
-        mysqli_stmt_prepare($stmt, "SELECT id FROM test");
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    if (false !== ($tmp = mysqli_stmt_prepare($stmt, "SELECT id FROM test")))
+        printf("[007] Expecting false, got %s/%s\n", gettype($tmp), $tmp);
 
     mysqli_close($link);
     print "done!";
@@ -42,6 +51,6 @@ require_once('skipifconnectfailure.inc');
 <?php
     require_once("clean_table.inc");
 ?>
---EXPECT--
-mysqli_stmt object is already closed
+--EXPECTF--
+Warning: mysqli_stmt_prepare(): Couldn't fetch mysqli_stmt in %s on line %d
 done!

@@ -1,16 +1,27 @@
 --TEST--
 mysqli_real_query()
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
 require_once('skipifconnectfailure.inc');
 ?>
 --FILE--
 <?php
     require_once("connect.inc");
 
+    $tmp    = NULL;
+    $link   = NULL;
+
+    if (!is_null($tmp = @mysqli_real_query()))
+        printf("[001] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
+    if (!is_null($tmp = @mysqli_real_query($link)))
+        printf("[002] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
     require('table.inc');
+
+    if (NULL !== ($tmp = @mysqli_real_query($link, "SELECT 1 AS a", MYSQLI_USE_RESULT, "foo")))
+        printf("[003] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
 
     if (false !== ($tmp = mysqli_real_query($link, 'THIS IS NOT SQL')))
         printf("[004] Expecting boolean/false, got %s/%s\n", gettype($tmp), $tmp);
@@ -73,11 +84,8 @@ ver_param;')) {
 
     mysqli_close($link);
 
-    try {
-        mysqli_real_query($link, "SELECT id FROM test");
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    if (false !== ($tmp = mysqli_real_query($link, "SELECT id FROM test")))
+        printf("[011] Expecting false, got %s/%s\n", gettype($tmp), $tmp);
 
     print "done!";
 ?>
@@ -95,10 +103,11 @@ if (!mysqli_query($link, "DROP TABLE IF EXISTS test"))
 
 mysqli_close($link);
 ?>
---EXPECT--
+--EXPECTF--
 array(1) {
   ["valid"]=>
   string(30) "this is sql but with semicolon"
 }
-mysqli object is already closed
+
+Warning: mysqli_real_query(): Couldn't fetch mysqli in %s on line %d
 done!

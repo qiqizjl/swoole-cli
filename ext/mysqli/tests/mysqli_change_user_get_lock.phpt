@@ -1,9 +1,9 @@
 --TEST--
 mysqli_change_user() - GET_LOCK()
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 die("skip - is the server still buggy?");
 ?>
@@ -95,7 +95,7 @@ sleep(5);
 ?>
 --CLEAN--
 <?php
-	require_once("clean_table.inc");
+    require_once("clean_table.inc");
 ?>
 --EXPECTF--
 Testing GET_LOCK()...

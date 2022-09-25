@@ -8,8 +8,8 @@ This test checks the error message is raised when refnode is the parent node
 Antonio Diaz Ruiz <dejalatele@gmail.com>
 --INI--
 assert.bail=true
---EXTENSIONS--
-dom
+--SKIPIF--
+<?php include('skipif.inc'); ?>
 --FILE--
 <?php
 $dom = new DOMDocument();
@@ -31,7 +31,7 @@ assert(!is_null($ref_node));
 try {
     $parent_node->insertBefore($new_node, $ref_node);
 } catch(DOMException $e) {
-    echo $e->getMessage();
+	echo $e->getMessage();
 }
 
 ?>

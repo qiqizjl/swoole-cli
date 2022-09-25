@@ -1,9 +1,9 @@
 --TEST--
 mysqli_get_charset()
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 if (!function_exists('mysqli_get_charset'))
     die("skip: function not available");
@@ -11,6 +11,18 @@ if (!function_exists('mysqli_get_charset'))
 --FILE--
 <?php
     require_once("connect.inc");
+
+    $tmp    = NULL;
+    $link   = NULL;
+
+    if (!is_null($tmp = @mysqli_get_charset()))
+        printf("[001] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
+    if (!is_null($tmp = @mysqli_get_charset($link)))
+        printf("[002] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
+    if (!is_null($tmp = @mysqli_set_charset($link, $link)))
+        printf("[003] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
 
     require('table.inc');
 
@@ -89,11 +101,8 @@ if (!function_exists('mysqli_get_charset'))
 
     mysqli_close($link);
 
-    try {
-        mysqli_get_charset($link);
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    if (false !== ($tmp = mysqli_get_charset($link)))
+        printf("[023] Expecting false, got %s/%s\n", gettype($tmp), $tmp);
 
     print "done!";
 ?>
@@ -101,6 +110,6 @@ if (!function_exists('mysqli_get_charset'))
 <?php
     require_once("clean_table.inc");
 ?>
---EXPECT--
-mysqli object is already closed
+--EXPECTF--
+Warning: mysqli_get_charset(): Couldn't fetch mysqli in %s on line %d
 done!

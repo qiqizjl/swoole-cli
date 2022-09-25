@@ -151,6 +151,16 @@ static SLJIT_INLINE sljit_s32 emit_imm64_const(struct sljit_compiler *compiler, 
 	return push_inst(compiler, MOVK | RD(dst) | ((imm >> 48) << 5) | (3 << 21));
 }
 
+static SLJIT_INLINE void modify_imm64_const(sljit_ins* inst, sljit_uw new_imm)
+{
+	sljit_s32 dst = inst[0] & 0x1f;
+	SLJIT_ASSERT((inst[0] & 0xffe00000) == MOVZ && (inst[1] & 0xffe00000) == (MOVK | (1 << 21)));
+	inst[0] = MOVZ | dst | ((new_imm & 0xffff) << 5);
+	inst[1] = MOVK | dst | (((new_imm >> 16) & 0xffff) << 5) | (1 << 21);
+	inst[2] = MOVK | dst | (((new_imm >> 32) & 0xffff) << 5) | (2 << 21);
+	inst[3] = MOVK | dst | ((new_imm >> 48) << 5) | (3 << 21);
+}
+
 static SLJIT_INLINE sljit_sw detect_jump_type(struct sljit_jump *jump, sljit_ins *code_ptr, sljit_ins *code, sljit_sw executable_offset)
 {
 	sljit_sw diff;
@@ -243,7 +253,7 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	CHECK_PTR(check_sljit_generate_code(compiler));
 	reverse_buf(compiler);
 
-	code = (sljit_ins*)SLJIT_MALLOC_EXEC(compiler->size * sizeof(sljit_ins), compiler->exec_allocator_data);
+	code = (sljit_ins*)SLJIT_MALLOC_EXEC(compiler->size * sizeof(sljit_ins));
 	PTR_FAIL_WITH_EXEC_IF(code);
 	buf = compiler->buf;
 
@@ -370,7 +380,6 @@ SLJIT_API_FUNC_ATTRIBUTE void* sljit_generate_code(struct sljit_compiler *compil
 	code_ptr = (sljit_ins *)SLJIT_ADD_EXEC_OFFSET(code_ptr, executable_offset);
 
 	SLJIT_CACHE_FLUSH(code, code_ptr);
-	SLJIT_UPDATE_WX_FLAGS(code, code_ptr, 1);
 	return code;
 }
 
@@ -644,7 +653,6 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 			imm = -imm;
 			/* Fall through. */
 		case SLJIT_ADD:
-			compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD_SUB;
 			if (imm == 0) {
 				CHECK_FLAGS(1 << 29);
 				return push_inst(compiler, ((op == SLJIT_ADD ? ADDI : SUBI) ^ inv_bits) | RD(dst) | RN(reg));
@@ -782,7 +790,6 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		break; /* Set flags. */
 	case SLJIT_NEG:
 		SLJIT_ASSERT(arg1 == TMP_REG1);
-		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD_SUB;
 		if (flags & SET_FLAGS)
 			inv_bits |= 1 << 29;
 		return push_inst(compiler, (SUB ^ inv_bits) | RD(dst) | RN(TMP_ZERO) | RM(arg2));
@@ -791,20 +798,17 @@ static sljit_s32 emit_op_imm(struct sljit_compiler *compiler, sljit_s32 flags, s
 		return push_inst(compiler, (CLZ ^ inv_bits) | RD(dst) | RN(arg2));
 	case SLJIT_ADD:
 		CHECK_FLAGS(1 << 29);
-		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD_SUB;
 		return push_inst(compiler, (ADD ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2));
 	case SLJIT_ADDC:
 		CHECK_FLAGS(1 << 29);
 		return push_inst(compiler, (ADC ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2));
 	case SLJIT_SUB:
 		CHECK_FLAGS(1 << 29);
-		compiler->status_flags_state = SLJIT_CURRENT_FLAGS_ADD_SUB;
 		return push_inst(compiler, (SUB ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2));
 	case SLJIT_SUBC:
 		CHECK_FLAGS(1 << 29);
 		return push_inst(compiler, (SBC ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2));
 	case SLJIT_MUL:
-		compiler->status_flags_state = 0;
 		if (!(flags & SET_FLAGS))
 			return push_inst(compiler, (MADD ^ inv_bits) | RD(dst) | RN(arg1) | RM(arg2) | RT2(TMP_ZERO));
 		if (flags & INT_OP) {
@@ -1605,14 +1609,16 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_fast_enter(struct sljit_compiler *
 /*  Conditional instructions                                             */
 /* --------------------------------------------------------------------- */
 
-static sljit_uw get_cc(struct sljit_compiler *compiler, sljit_s32 type)
+static sljit_uw get_cc(sljit_s32 type)
 {
 	switch (type) {
 	case SLJIT_EQUAL:
+	case SLJIT_MUL_NOT_OVERFLOW:
 	case SLJIT_EQUAL_F64:
 		return 0x1;
 
 	case SLJIT_NOT_EQUAL:
+	case SLJIT_MUL_OVERFLOW:
 	case SLJIT_NOT_EQUAL_F64:
 		return 0x0;
 
@@ -1645,16 +1651,10 @@ static sljit_uw get_cc(struct sljit_compiler *compiler, sljit_s32 type)
 		return 0xc;
 
 	case SLJIT_OVERFLOW:
-		if (!(compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD_SUB))
-			return 0x0;
-
 	case SLJIT_UNORDERED_F64:
 		return 0x7;
 
 	case SLJIT_NOT_OVERFLOW:
-		if (!(compiler->status_flags_state & SLJIT_CURRENT_FLAGS_ADD_SUB))
-			return 0x1;
-
 	case SLJIT_ORDERED_F64:
 		return 0x6;
 
@@ -1694,7 +1694,7 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_jump* sljit_emit_jump(struct sljit_compile
 
 	if (type < SLJIT_JUMP) {
 		jump->flags |= IS_COND;
-		PTR_FAIL_IF(push_inst(compiler, B_CC | (6 << 5) | get_cc(compiler, type)));
+		PTR_FAIL_IF(push_inst(compiler, B_CC | (6 << 5) | get_cc(type)));
 	}
 	else if (type >= SLJIT_FAST_CALL)
 		jump->flags |= IS_BL;
@@ -1808,7 +1808,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_op_flags(struct sljit_compiler *co
 	CHECK(check_sljit_emit_op_flags(compiler, op, dst, dstw, type));
 	ADJUST_LOCAL_OFFSET(dst, dstw);
 
-	cc = get_cc(compiler, type & 0xff);
+	cc = get_cc(type & 0xff);
 	dst_r = FAST_IS_REG(dst) ? dst : TMP_REG1;
 
 	if (GET_OPCODE(op) < SLJIT_ADD) {
@@ -1863,7 +1863,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_s32 sljit_emit_cmov(struct sljit_compiler *compil
 		srcw = 0;
 	}
 
-	cc = get_cc(compiler, type & 0xff);
+	cc = get_cc(type & 0xff);
 	dst_reg &= ~SLJIT_I32_OP;
 
 	return push_inst(compiler, (CSEL ^ inv_bits) | (cc << 12) | RD(dst_reg) | RN(dst_reg) | RM(src));
@@ -2034,24 +2034,15 @@ SLJIT_API_FUNC_ATTRIBUTE struct sljit_put_label* sljit_emit_put_label(struct slj
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_jump_addr(sljit_uw addr, sljit_uw new_target, sljit_sw executable_offset)
 {
 	sljit_ins* inst = (sljit_ins*)addr;
-	sljit_s32 dst;
-	SLJIT_UNUSED_ARG(executable_offset);
-
-	SLJIT_UPDATE_WX_FLAGS(inst, inst + 4, 0);
-
-	dst = inst[0] & 0x1f;
-	SLJIT_ASSERT((inst[0] & 0xffe00000) == MOVZ && (inst[1] & 0xffe00000) == (MOVK | (1 << 21)));
-	inst[0] = MOVZ | dst | ((new_target & 0xffff) << 5);
-	inst[1] = MOVK | dst | (((new_target >> 16) & 0xffff) << 5) | (1 << 21);
-	inst[2] = MOVK | dst | (((new_target >> 32) & 0xffff) << 5) | (2 << 21);
-	inst[3] = MOVK | dst | ((new_target >> 48) << 5) | (3 << 21);
-
-	SLJIT_UPDATE_WX_FLAGS(inst, inst + 4, 1);
+	modify_imm64_const(inst, new_target);
 	inst = (sljit_ins *)SLJIT_ADD_EXEC_OFFSET(inst, executable_offset);
 	SLJIT_CACHE_FLUSH(inst, inst + 4);
 }
 
 SLJIT_API_FUNC_ATTRIBUTE void sljit_set_const(sljit_uw addr, sljit_sw new_constant, sljit_sw executable_offset)
 {
-	sljit_set_jump_addr(addr, new_constant, executable_offset);
+	sljit_ins* inst = (sljit_ins*)addr;
+	modify_imm64_const(inst, new_constant);
+	inst = (sljit_ins *)SLJIT_ADD_EXEC_OFFSET(inst, executable_offset);
+	SLJIT_CACHE_FLUSH(inst, inst + 4);
 }

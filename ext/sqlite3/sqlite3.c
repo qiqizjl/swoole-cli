@@ -1,11 +1,13 @@
 /*
    +----------------------------------------------------------------------+
+   | PHP Version 7                                                        |
+   +----------------------------------------------------------------------+
    | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
-   | https://www.php.net/license/3_01.txt                                 |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -23,22 +25,23 @@
 #include "ext/standard/info.h"
 #include "php_sqlite3.h"
 #include "php_sqlite3_structs.h"
-#include "sqlite3_arginfo.h"
 #include "main/SAPI.h"
 
 #include <sqlite3.h>
 
 #include "zend_exceptions.h"
+#include "zend_interfaces.h"
 #include "SAPI.h"
 
 ZEND_DECLARE_MODULE_GLOBALS(sqlite3)
 
 static PHP_GINIT_FUNCTION(sqlite3);
-static int php_sqlite3_authorizer(void *autharg, int action, const char *arg1, const char *arg2, const char *arg3, const char *arg4);
+static int php_sqlite3_authorizer(void *autharg, int access_type, const char *arg3, const char *arg4, const char *arg5, const char *arg6);
 static void sqlite3_param_dtor(zval *data);
 static int php_sqlite3_compare_stmt_zval_free(php_sqlite3_free_list **free_list, zval *statement);
 
-/* {{{ Error Handler */
+/* {{{ Error Handler
+*/
 static void php_sqlite3_error(php_sqlite3_db_object *db_obj, char *format, ...)
 {
 	va_list arg;
@@ -62,21 +65,22 @@ static void php_sqlite3_error(php_sqlite3_db_object *db_obj, char *format, ...)
 
 #define SQLITE3_CHECK_INITIALIZED(db_obj, member, class_name) \
 	if (!(db_obj) || !(member)) { \
-		zend_throw_error(NULL, "The " #class_name " object has not been correctly initialised or is already closed"); \
-		RETURN_THROWS(); \
+		php_sqlite3_error(db_obj, "The " #class_name " object has not been correctly initialised"); \
+		RETURN_FALSE; \
 	}
 
 #define SQLITE3_CHECK_INITIALIZED_STMT(member, class_name) \
 	if (!(member)) { \
-		zend_throw_error(NULL, "The " #class_name " object has not been correctly initialised or is already closed"); \
-		RETURN_THROWS(); \
+		php_error_docref(NULL, E_WARNING, "The " #class_name " object has not been correctly initialised"); \
+		RETURN_FALSE; \
 	}
 
-/* {{{ PHP_INI */
+/* {{{ PHP_INI
+*/
 PHP_INI_BEGIN()
 	STD_PHP_INI_ENTRY("sqlite3.extension_dir",  NULL, PHP_INI_SYSTEM, OnUpdateString, extension_dir, zend_sqlite3_globals, sqlite3_globals)
 #if SQLITE_VERSION_NUMBER >= 3026000
-	STD_PHP_INI_BOOLEAN("sqlite3.defensive",  "1", PHP_INI_SYSTEM, OnUpdateBool, dbconfig_defensive, zend_sqlite3_globals, sqlite3_globals)
+	STD_PHP_INI_ENTRY("sqlite3.defensive",  "1", PHP_INI_SYSTEM, OnUpdateBool, dbconfig_defensive, zend_sqlite3_globals, sqlite3_globals)
 #endif
 PHP_INI_END()
 /* }}} */
@@ -91,8 +95,9 @@ zend_class_entry *php_sqlite3_sc_entry;
 zend_class_entry *php_sqlite3_stmt_entry;
 zend_class_entry *php_sqlite3_result_entry;
 
-/* {{{ Opens a SQLite 3 Database, if the build includes encryption then it will attempt to use the key. */
-PHP_METHOD(SQLite3, open)
+/* {{{ proto void SQLite3::open(String filename [, int Flags [, string Encryption Key]])
+   Opens a SQLite 3 Database, if the build includes encryption then it will attempt to use the key. */
+PHP_METHOD(sqlite3, open)
 {
 	php_sqlite3_db_object *db_obj;
 	zval *object = ZEND_THIS;
@@ -103,26 +108,26 @@ PHP_METHOD(SQLite3, open)
 
 	db_obj = Z_SQLITE3_DB_P(object);
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS(), "p|ls", &filename, &filename_len, &flags, &encryption_key, &encryption_key_len)) {
-		RETURN_THROWS();
+	if (FAILURE == zend_parse_parameters_throw(ZEND_NUM_ARGS(), "p|ls", &filename, &filename_len, &flags, &encryption_key, &encryption_key_len)) {
+		return;
 	}
 
 	if (db_obj->initialised) {
 		zend_throw_exception(zend_ce_exception, "Already initialised DB Object", 0);
-		RETURN_THROWS();
+		return;
 	}
 
 	if (filename_len != 0 && (filename_len != sizeof(":memory:")-1 ||
 			memcmp(filename, ":memory:", sizeof(":memory:")-1) != 0)) {
 		if (!(fullpath = expand_filepath(filename, NULL))) {
 			zend_throw_exception(zend_ce_exception, "Unable to expand filepath", 0);
-			RETURN_THROWS();
+			return;
 		}
 
 		if (php_check_open_basedir(fullpath)) {
 			zend_throw_exception_ex(zend_ce_exception, 0, "open_basedir prohibits opening %s", fullpath);
 			efree(fullpath);
-			RETURN_THROWS();
+			return;
 		}
 	} else {
 		/* filename equals "" or ":memory:" */
@@ -144,21 +149,21 @@ PHP_METHOD(SQLite3, open)
 		return;
 	}
 
-#ifdef SQLITE_HAS_CODEC
+#if SQLITE_HAS_CODEC
 	if (encryption_key_len > 0) {
 		if (sqlite3_key(db_obj->db, encryption_key, encryption_key_len) != SQLITE_OK) {
 			zend_throw_exception_ex(zend_ce_exception, 0, "Unable to open database: %s", sqlite3_errmsg(db_obj->db));
 			sqlite3_close(db_obj->db);
-			RETURN_THROWS();
+			return;
 		}
 	}
 #endif
 
 	db_obj->initialised = 1;
-	db_obj->authorizer_fci = empty_fcall_info;
-	db_obj->authorizer_fcc = empty_fcall_info_cache;
 
-	sqlite3_set_authorizer(db_obj->db, php_sqlite3_authorizer, db_obj);
+	if (PG(open_basedir) && *PG(open_basedir)) {
+		sqlite3_set_authorizer(db_obj->db, php_sqlite3_authorizer, NULL);
+	}
 
 #if SQLITE_VERSION_NUMBER >= 3026000
 	if (SQLITE3G(dbconfig_defensive)) {
@@ -172,8 +177,9 @@ PHP_METHOD(SQLite3, open)
 }
 /* }}} */
 
-/* {{{ Close a SQLite 3 Database. */
-PHP_METHOD(SQLite3, close)
+/* {{{ proto bool SQLite3::close()
+   Close a SQLite 3 Database. */
+PHP_METHOD(sqlite3, close)
 {
 	php_sqlite3_db_object *db_obj;
 	zval *object = ZEND_THIS;
@@ -181,18 +187,18 @@ PHP_METHOD(SQLite3, close)
 	db_obj = Z_SQLITE3_DB_P(object);
 
 	if (zend_parse_parameters_none() == FAILURE) {
-		RETURN_THROWS();
+		return;
 	}
 
 	if (db_obj->initialised) {
-		zend_llist_clean(&(db_obj->free_list));
+        zend_llist_clean(&(db_obj->free_list));
 		if(db_obj->db) {
-			errcode = sqlite3_close(db_obj->db);
-			if (errcode != SQLITE_OK) {
-				php_sqlite3_error(db_obj, "Unable to close database: %d, %s", errcode, sqlite3_errmsg(db_obj->db));
-				RETURN_FALSE;
-			}
-		}
+            errcode = sqlite3_close(db_obj->db);
+            if (errcode != SQLITE_OK) {
+			    php_sqlite3_error(db_obj, "Unable to close database: %d, %s", errcode, sqlite3_errmsg(db_obj->db));
+                RETURN_FALSE;
+		    }
+        }
 		db_obj->initialised = 0;
 	}
 
@@ -200,8 +206,9 @@ PHP_METHOD(SQLite3, close)
 }
 /* }}} */
 
-/* {{{ Executes a result-less query against a given database. */
-PHP_METHOD(SQLite3, exec)
+/* {{{ proto bool SQLite3::exec(String Query)
+   Executes a result-less query against a given database. */
+PHP_METHOD(sqlite3, exec)
 {
 	php_sqlite3_db_object *db_obj;
 	zval *object = ZEND_THIS;
@@ -209,11 +216,11 @@ PHP_METHOD(SQLite3, exec)
 	char *errtext = NULL;
 	db_obj = Z_SQLITE3_DB_P(object);
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS(), "S", &sql)) {
-		RETURN_THROWS();
-	}
-
 	SQLITE3_CHECK_INITIALIZED(db_obj, db_obj->initialised, SQLite3)
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS(), "S", &sql)) {
+		return;
+	}
 
 	if (sqlite3_exec(db_obj->db, ZSTR_VAL(sql), NULL, NULL, &errtext) != SQLITE_OK) {
 		php_sqlite3_error(db_obj, "%s", errtext);
@@ -225,11 +232,12 @@ PHP_METHOD(SQLite3, exec)
 }
 /* }}} */
 
-/* {{{ Returns the SQLite3 Library version as a string constant and as a number. */
-PHP_METHOD(SQLite3, version)
+/* {{{ proto Array SQLite3::version()
+   Returns the SQLite3 Library version as a string constant and as a number. */
+PHP_METHOD(sqlite3, version)
 {
 	if (zend_parse_parameters_none() == FAILURE) {
-		RETURN_THROWS();
+		return;
 	}
 
 	array_init(return_value);
@@ -241,35 +249,37 @@ PHP_METHOD(SQLite3, version)
 }
 /* }}} */
 
-/* {{{ Returns the rowid of the most recent INSERT into the database from the database connection. */
-PHP_METHOD(SQLite3, lastInsertRowID)
+/* {{{ proto int SQLite3::lastInsertRowID()
+   Returns the rowid of the most recent INSERT into the database from the database connection. */
+PHP_METHOD(sqlite3, lastInsertRowID)
 {
 	php_sqlite3_db_object *db_obj;
 	zval *object = ZEND_THIS;
 	db_obj = Z_SQLITE3_DB_P(object);
 
-	if (zend_parse_parameters_none() == FAILURE) {
-		RETURN_THROWS();
-	}
-
 	SQLITE3_CHECK_INITIALIZED(db_obj, db_obj->initialised, SQLite3)
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 
 	RETURN_LONG((zend_long) sqlite3_last_insert_rowid(db_obj->db));
 }
 /* }}} */
 
-/* {{{ Returns the numeric result code of the most recent failed sqlite API call for the database connection. */
-PHP_METHOD(SQLite3, lastErrorCode)
+/* {{{ proto int SQLite3::lastErrorCode()
+   Returns the numeric result code of the most recent failed sqlite API call for the database connection. */
+PHP_METHOD(sqlite3, lastErrorCode)
 {
 	php_sqlite3_db_object *db_obj;
 	zval *object = ZEND_THIS;
 	db_obj = Z_SQLITE3_DB_P(object);
 
-	if (zend_parse_parameters_none() == FAILURE) {
-		RETURN_THROWS();
-	}
-
 	SQLITE3_CHECK_INITIALIZED(db_obj, db_obj->db, SQLite3)
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 
 	if (db_obj->initialised) {
 		RETURN_LONG(sqlite3_errcode(db_obj->db));
@@ -279,18 +289,19 @@ PHP_METHOD(SQLite3, lastErrorCode)
 }
 /* }}} */
 
-/* {{{ Returns the numeric extended result code of the most recent failed sqlite API call for the database connection. */
-PHP_METHOD(SQLite3, lastExtendedErrorCode)
+/* {{{ proto int SQLite3::lastExtendedErrorCode()
+   Returns the numeric extended result code of the most recent failed sqlite API call for the database connection. */
+PHP_METHOD(sqlite3, lastExtendedErrorCode)
 {
 	php_sqlite3_db_object *db_obj;
 	zval *object = ZEND_THIS;
 	db_obj = Z_SQLITE3_DB_P(object);
 
-	if (zend_parse_parameters_none() == FAILURE) {
-		RETURN_THROWS();
-	}
-
 	SQLITE3_CHECK_INITIALIZED(db_obj, db_obj->db, SQLite3)
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 
 	if (db_obj->initialised) {
 		RETURN_LONG(sqlite3_extended_errcode(db_obj->db));
@@ -300,20 +311,21 @@ PHP_METHOD(SQLite3, lastExtendedErrorCode)
 }
 /* }}} */
 
-/* {{{ Turns on or off the extended result codes feature of SQLite. */
-PHP_METHOD(SQLite3, enableExtendedResultCodes)
+/* {{{ proto bool SQLite3::enableExtendedResultCodes([bool enable = true])
+    Turns on or off the extended result codes feature of SQLite. */
+PHP_METHOD(sqlite3, enableExtendedResultCodes)
 {
 	php_sqlite3_db_object *db_obj;
 	zval *object = ZEND_THIS;
-	bool enable = 1;
+	zend_bool enable = 1;
 	db_obj = Z_SQLITE3_DB_P(object);
 	int ret;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "|b", &enable) == FAILURE) {
-		RETURN_THROWS();
-	}
-
 	SQLITE3_CHECK_INITIALIZED(db_obj, db_obj->db, SQLite3)
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "|b", &enable) == FAILURE) {
+		return;
+	}
 
 	if (db_obj->initialised) {
 		ret = sqlite3_extended_result_codes(db_obj->db, enable ? 1 : 0);
@@ -327,18 +339,19 @@ PHP_METHOD(SQLite3, enableExtendedResultCodes)
 }
 /* }}} */
 
-/* {{{ Returns english text describing the most recent failed sqlite API call for the database connection. */
-PHP_METHOD(SQLite3, lastErrorMsg)
+/* {{{ proto string SQLite3::lastErrorMsg()
+   Returns english text describing the most recent failed sqlite API call for the database connection. */
+PHP_METHOD(sqlite3, lastErrorMsg)
 {
 	php_sqlite3_db_object *db_obj;
 	zval *object = ZEND_THIS;
 	db_obj = Z_SQLITE3_DB_P(object);
 
-	if (zend_parse_parameters_none() == FAILURE) {
-		RETURN_THROWS();
-	}
-
 	SQLITE3_CHECK_INITIALIZED(db_obj, db_obj->db, SQLite3)
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 
 	if (db_obj->initialised) {
 		RETURN_STRING((char *)sqlite3_errmsg(db_obj->db));
@@ -348,8 +361,9 @@ PHP_METHOD(SQLite3, lastErrorMsg)
 }
 /* }}} */
 
-/* {{{ Sets a busy handler that will sleep until database is not locked or timeout is reached. Passing a value less than or equal to zero turns off all busy handlers. */
-PHP_METHOD(SQLite3, busyTimeout)
+/* {{{ proto bool SQLite3::busyTimeout(int msecs)
+   Sets a busy handler that will sleep until database is not locked or timeout is reached. Passing a value less than or equal to zero turns off all busy handlers. */
+PHP_METHOD(sqlite3, busyTimeout)
 {
 	php_sqlite3_db_object *db_obj;
 	zval *object = ZEND_THIS;
@@ -359,11 +373,11 @@ PHP_METHOD(SQLite3, busyTimeout)
 #endif
 	db_obj = Z_SQLITE3_DB_P(object);
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS(), "l", &ms)) {
-		RETURN_THROWS();
-	}
-
 	SQLITE3_CHECK_INITIALIZED(db_obj, db_obj->initialised, SQLite3)
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS(), "l", &ms)) {
+		return;
+	}
 
 #ifdef SQLITE_ENABLE_API_ARMOR
 	return_code = sqlite3_busy_timeout(db_obj->db, ms);
@@ -381,8 +395,9 @@ PHP_METHOD(SQLite3, busyTimeout)
 
 
 #ifndef SQLITE_OMIT_LOAD_EXTENSION
-/* {{{ Attempts to load an SQLite extension library. */
-PHP_METHOD(SQLite3, loadExtension)
+/* {{{ proto bool SQLite3::loadExtension(String Shared Library)
+   Attempts to load an SQLite extension library. */
+PHP_METHOD(sqlite3, loadExtension)
 {
 	php_sqlite3_db_object *db_obj;
 	zval *object = ZEND_THIS;
@@ -391,11 +406,11 @@ PHP_METHOD(SQLite3, loadExtension)
 	size_t extension_len, extension_dir_len;
 	db_obj = Z_SQLITE3_DB_P(object);
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS(), "s", &extension, &extension_len)) {
-		RETURN_THROWS();
-	}
-
 	SQLITE3_CHECK_INITIALIZED(db_obj, db_obj->initialised, SQLite3)
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS(), "s", &extension, &extension_len)) {
+		return;
+	}
 
 #ifdef ZTS
 	if ((strncmp(sapi_module.name, "cgi", 3) != 0) &&
@@ -453,31 +468,33 @@ PHP_METHOD(SQLite3, loadExtension)
 /* }}} */
 #endif
 
-/* {{{ Returns the number of database rows that were changed (or inserted or deleted) by the most recent SQL statement. */
-PHP_METHOD(SQLite3, changes)
+/* {{{ proto int SQLite3::changes()
+  Returns the number of database rows that were changed (or inserted or deleted) by the most recent SQL statement. */
+PHP_METHOD(sqlite3, changes)
 {
 	php_sqlite3_db_object *db_obj;
 	zval *object = ZEND_THIS;
 	db_obj = Z_SQLITE3_DB_P(object);
 
-	if (zend_parse_parameters_none() == FAILURE) {
-		RETURN_THROWS();
-	}
-
 	SQLITE3_CHECK_INITIALIZED(db_obj, db_obj->initialised, SQLite3)
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 
 	RETURN_LONG(sqlite3_changes(db_obj->db));
 }
 /* }}} */
 
-/* {{{ Returns a string that has been properly escaped. */
-PHP_METHOD(SQLite3, escapeString)
+/* {{{ proto String SQLite3::escapeString(String value)
+   Returns a string that has been properly escaped. */
+PHP_METHOD(sqlite3, escapeString)
 {
 	zend_string *sql;
 	char *ret;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS(), "S", &sql)) {
-		RETURN_THROWS();
+		return;
 	}
 
 	if (ZSTR_LEN(sql)) {
@@ -492,8 +509,9 @@ PHP_METHOD(SQLite3, escapeString)
 }
 /* }}} */
 
-/* {{{ Returns a prepared SQL statement for execution. */
-PHP_METHOD(SQLite3, prepare)
+/* {{{ proto SQLite3Stmt SQLite3::prepare(String Query)
+   Returns a prepared SQL statement for execution. */
+PHP_METHOD(sqlite3, prepare)
 {
 	php_sqlite3_db_object *db_obj;
 	php_sqlite3_stmt *stmt_obj;
@@ -504,11 +522,11 @@ PHP_METHOD(SQLite3, prepare)
 
 	db_obj = Z_SQLITE3_DB_P(object);
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS(), "S", &sql)) {
-		RETURN_THROWS();
-	}
-
 	SQLITE3_CHECK_INITIALIZED(db_obj, db_obj->initialised, SQLite3)
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS(), "S", &sql)) {
+		return;
+	}
 
 	if (!ZSTR_LEN(sql)) {
 		RETURN_FALSE;
@@ -517,7 +535,8 @@ PHP_METHOD(SQLite3, prepare)
 	object_init_ex(return_value, php_sqlite3_stmt_entry);
 	stmt_obj = Z_SQLITE3_STMT_P(return_value);
 	stmt_obj->db_obj = db_obj;
-	ZVAL_OBJ_COPY(&stmt_obj->db_obj_zval, Z_OBJ_P(object));
+	Z_ADDREF_P(object);
+	ZVAL_OBJ(&stmt_obj->db_obj_zval, Z_OBJ_P(object));
 
 	errcode = sqlite3_prepare_v2(db_obj->db, ZSTR_VAL(sql), ZSTR_LEN(sql), &(stmt_obj->stmt), NULL);
 	if (errcode != SQLITE_OK) {
@@ -536,8 +555,9 @@ PHP_METHOD(SQLite3, prepare)
 }
 /* }}} */
 
-/* {{{ Returns true or false, for queries that return data it will return a SQLite3Result object. */
-PHP_METHOD(SQLite3, query)
+/* {{{ proto SQLite3Result SQLite3::query(String Query)
+   Returns true or false, for queries that return data it will return a SQLite3Result object. */
+PHP_METHOD(sqlite3, query)
 {
 	php_sqlite3_db_object *db_obj;
 	php_sqlite3_result *result;
@@ -549,11 +569,11 @@ PHP_METHOD(SQLite3, query)
 	int return_code;
 	db_obj = Z_SQLITE3_DB_P(object);
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS(), "S", &sql)) {
-		RETURN_THROWS();
-	}
-
 	SQLITE3_CHECK_INITIALIZED(db_obj, db_obj->initialised, SQLite3)
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS(), "S", &sql)) {
+		return;
+	}
 
 	if (!ZSTR_LEN(sql)) {
 		RETURN_FALSE;
@@ -565,13 +585,14 @@ PHP_METHOD(SQLite3, query)
 			php_sqlite3_error(db_obj, "%s", errtext);
 			sqlite3_free(errtext);
 		}
-		RETURN_FALSE;
+		return;
 	}
 
 	object_init_ex(&stmt, php_sqlite3_stmt_entry);
 	stmt_obj = Z_SQLITE3_STMT_P(&stmt);
 	stmt_obj->db_obj = db_obj;
-	ZVAL_OBJ_COPY(&stmt_obj->db_obj_zval, Z_OBJ_P(object));
+	Z_ADDREF_P(object);
+	ZVAL_OBJ(&stmt_obj->db_obj_zval, Z_OBJ_P(object));
 
 	return_code = sqlite3_prepare_v2(db_obj->db, ZSTR_VAL(sql), ZSTR_LEN(sql), &(stmt_obj->stmt), NULL);
 	if (return_code != SQLITE_OK) {
@@ -651,23 +672,24 @@ static void sqlite_value_to_zval(sqlite3_stmt *stmt, int column, zval *data) /* 
 }
 /* }}} */
 
-/* {{{ Returns a string of the first column, or an array of the entire row. */
-PHP_METHOD(SQLite3, querySingle)
+/* {{{ proto SQLite3Result SQLite3::querySingle(String Query [, bool entire_row = false])
+   Returns a string of the first column, or an array of the entire row. */
+PHP_METHOD(sqlite3, querySingle)
 {
 	php_sqlite3_db_object *db_obj;
 	zval *object = ZEND_THIS;
 	zend_string *sql;
 	char *errtext = NULL;
 	int return_code;
-	bool entire_row = 0;
+	zend_bool entire_row = 0;
 	sqlite3_stmt *stmt;
 	db_obj = Z_SQLITE3_DB_P(object);
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS(), "S|b", &sql, &entire_row)) {
-		RETURN_THROWS();
-	}
-
 	SQLITE3_CHECK_INITIALIZED(db_obj, db_obj->initialised, SQLite3)
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS(), "S|b", &sql, &entire_row)) {
+		return;
+	}
 
 	if (!ZSTR_LEN(sql)) {
 		RETURN_FALSE;
@@ -679,7 +701,7 @@ PHP_METHOD(SQLite3, querySingle)
 			php_sqlite3_error(db_obj, "%s", errtext);
 			sqlite3_free(errtext);
 		}
-		RETURN_FALSE;
+		return;
 	}
 
 	return_code = sqlite3_prepare_v2(db_obj->db, ZSTR_VAL(sql), ZSTR_LEN(sql), &stmt, NULL);
@@ -943,27 +965,34 @@ static int php_sqlite3_callback_compare(void *coll, int a_len, const void *a, in
 }
 /* }}} */
 
-/* {{{ Allows registration of a PHP function as a SQLite UDF that can be called within SQL statements. */
-PHP_METHOD(SQLite3, createFunction)
+/* {{{ proto bool SQLite3::createFunction(string name, mixed callback [, int argcount, int flags])
+   Allows registration of a PHP function as a SQLite UDF that can be called within SQL statements. */
+PHP_METHOD(sqlite3, createFunction)
 {
 	php_sqlite3_db_object *db_obj;
 	zval *object = ZEND_THIS;
 	php_sqlite3_func *func;
 	char *sql_func;
 	size_t sql_func_len;
-	zend_fcall_info fci;
-	zend_fcall_info_cache fcc;
+	zval *callback_func;
 	zend_long sql_func_num_args = -1;
 	zend_long flags = 0;
 	db_obj = Z_SQLITE3_DB_P(object);
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "sf|ll", &sql_func, &sql_func_len, &fci, &fcc, &sql_func_num_args, &flags) == FAILURE) {
-		RETURN_THROWS();
-	}
-
 	SQLITE3_CHECK_INITIALIZED(db_obj, db_obj->initialised, SQLite3)
 
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "sz|ll", &sql_func, &sql_func_len, &callback_func, &sql_func_num_args, &flags) == FAILURE) {
+		return;
+	}
+
 	if (!sql_func_len) {
+		RETURN_FALSE;
+	}
+
+	if (!zend_is_callable(callback_func, 0, NULL)) {
+		zend_string *callback_name = zend_get_callable_name(callback_func);
+		php_sqlite3_error(db_obj, "Not a valid callback function %s", ZSTR_VAL(callback_name));
+		zend_string_release_ex(callback_name, 0);
 		RETURN_FALSE;
 	}
 
@@ -972,7 +1001,7 @@ PHP_METHOD(SQLite3, createFunction)
 	if (sqlite3_create_function(db_obj->db, sql_func, sql_func_num_args, flags | SQLITE_UTF8, func, php_sqlite3_callback_func, NULL, NULL) == SQLITE_OK) {
 		func->func_name = estrdup(sql_func);
 
-		ZVAL_COPY(&func->func, &fci.function_name);
+		ZVAL_COPY(&func->func, callback_func);
 
 		func->argc = sql_func_num_args;
 		func->next = db_obj->funcs;
@@ -986,26 +1015,40 @@ PHP_METHOD(SQLite3, createFunction)
 }
 /* }}} */
 
-/* {{{ Allows registration of a PHP function for use as an aggregate. */
-PHP_METHOD(SQLite3, createAggregate)
+/* {{{ proto bool SQLite3::createAggregate(string name, mixed step, mixed final [, int argcount])
+   Allows registration of a PHP function for use as an aggregate. */
+PHP_METHOD(sqlite3, createAggregate)
 {
 	php_sqlite3_db_object *db_obj;
 	zval *object = ZEND_THIS;
 	php_sqlite3_func *func;
 	char *sql_func;
 	size_t sql_func_len;
-	zend_fcall_info step_fci, fini_fci;
-	zend_fcall_info_cache step_fcc, fini_fcc;
+	zval *step_callback, *fini_callback;
 	zend_long sql_func_num_args = -1;
 	db_obj = Z_SQLITE3_DB_P(object);
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "sff|l", &sql_func, &sql_func_len, &step_fci, &step_fcc, &fini_fci, &fini_fcc, &sql_func_num_args) == FAILURE) {
-		RETURN_THROWS();
-	}
-
 	SQLITE3_CHECK_INITIALIZED(db_obj, db_obj->initialised, SQLite3)
 
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "szz|l", &sql_func, &sql_func_len, &step_callback, &fini_callback, &sql_func_num_args) == FAILURE) {
+		return;
+	}
+
 	if (!sql_func_len) {
+		RETURN_FALSE;
+	}
+
+	if (!zend_is_callable(step_callback, 0, NULL)) {
+		zend_string *callback_name = zend_get_callable_name(step_callback);
+		php_sqlite3_error(db_obj, "Not a valid callback function %s", ZSTR_VAL(callback_name));
+		zend_string_release_ex(callback_name, 0);
+		RETURN_FALSE;
+	}
+
+	if (!zend_is_callable(fini_callback, 0, NULL)) {
+		zend_string *callback_name = zend_get_callable_name(fini_callback);
+		php_sqlite3_error(db_obj, "Not a valid callback function %s", ZSTR_VAL(callback_name));
+		zend_string_release_ex(callback_name, 0);
 		RETURN_FALSE;
 	}
 
@@ -1014,8 +1057,8 @@ PHP_METHOD(SQLite3, createAggregate)
 	if (sqlite3_create_function(db_obj->db, sql_func, sql_func_num_args, SQLITE_UTF8, func, NULL, php_sqlite3_callback_step, php_sqlite3_callback_final) == SQLITE_OK) {
 		func->func_name = estrdup(sql_func);
 
-		ZVAL_COPY(&func->step, &step_fci.function_name);
-		ZVAL_COPY(&func->fini, &fini_fci.function_name);
+		ZVAL_COPY(&func->step, step_callback);
+		ZVAL_COPY(&func->fini, fini_callback);
 
 		func->argc = sql_func_num_args;
 		func->next = db_obj->funcs;
@@ -1029,25 +1072,32 @@ PHP_METHOD(SQLite3, createAggregate)
 }
 /* }}} */
 
-/* {{{ Registers a PHP function as a comparator that can be used with the SQL COLLATE operator. Callback must accept two strings and return an integer (as strcmp()). */
-PHP_METHOD(SQLite3, createCollation)
+/* {{{ proto bool SQLite3::createCollation(string name, mixed callback)
+   Registers a PHP function as a comparator that can be used with the SQL COLLATE operator. Callback must accept two strings and return an integer (as strcmp()). */
+PHP_METHOD(sqlite3, createCollation)
 {
 	php_sqlite3_db_object *db_obj;
 	zval *object = ZEND_THIS;
 	php_sqlite3_collation *collation;
 	char *collation_name;
 	size_t collation_name_len;
-	zend_fcall_info fci;
-	zend_fcall_info_cache fcc;
+	zval *callback_func;
 	db_obj = Z_SQLITE3_DB_P(object);
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "sf", &collation_name, &collation_name_len, &fci, &fcc) == FAILURE) {
-		RETURN_THROWS();
-	}
 
 	SQLITE3_CHECK_INITIALIZED(db_obj, db_obj->initialised, SQLite3)
 
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "sz", &collation_name, &collation_name_len, &callback_func) == FAILURE) {
+		RETURN_FALSE;
+	}
+
 	if (!collation_name_len) {
+		RETURN_FALSE;
+	}
+
+	if (!zend_is_callable(callback_func, 0, NULL)) {
+		zend_string *callback_name = zend_get_callable_name(callback_func);
+		php_sqlite3_error(db_obj, "Not a valid callback function %s", ZSTR_VAL(callback_name));
+		zend_string_release_ex(callback_name, 0);
 		RETURN_FALSE;
 	}
 
@@ -1055,7 +1105,7 @@ PHP_METHOD(SQLite3, createCollation)
 	if (sqlite3_create_collation(db_obj->db, collation_name, SQLITE_UTF8, collation, php_sqlite3_callback_compare) == SQLITE_OK) {
 		collation->collation_name = estrdup(collation_name);
 
-		ZVAL_COPY(&collation->cmp_func, &fci.function_name);
+		ZVAL_COPY(&collation->cmp_func, callback_func);
 
 		collation->next = db_obj->collations;
 		db_obj->collations = collation;
@@ -1228,8 +1278,9 @@ static const php_stream_ops php_stream_sqlite3_ops = {
 	NULL
 };
 
-/* {{{ Open a blob as a stream which we can read / write to. */
-PHP_METHOD(SQLite3, openBlob)
+/* {{{ proto resource SQLite3::openBlob(string table, string column, int rowid [, string dbname [, int flags]])
+   Open a blob as a stream which we can read / write to. */
+PHP_METHOD(sqlite3, openBlob)
 {
 	php_sqlite3_db_object *db_obj;
 	zval *object = ZEND_THIS;
@@ -1242,11 +1293,11 @@ PHP_METHOD(SQLite3, openBlob)
 
 	db_obj = Z_SQLITE3_DB_P(object);
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "ssl|pl", &table, &table_len, &column, &column_len, &rowid, &dbname, &dbname_len, &flags) == FAILURE) {
-		RETURN_THROWS();
-	}
-
 	SQLITE3_CHECK_INITIALIZED(db_obj, db_obj->initialised, SQLite3)
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "ssl|sl", &table, &table_len, &column, &column_len, &rowid, &dbname, &dbname_len, &flags) == FAILURE) {
+		return;
+	}
 
 	sqlite_flags = (flags & SQLITE_OPEN_READWRITE) ? 1 : 0;
 
@@ -1275,17 +1326,18 @@ PHP_METHOD(SQLite3, openBlob)
 }
 /* }}} */
 
-/* {{{ Enables an exception error mode. */
-PHP_METHOD(SQLite3, enableExceptions)
+/* {{{ proto bool SQLite3::enableExceptions([bool enableExceptions = false])
+   Enables an exception error mode. */
+PHP_METHOD(sqlite3, enableExceptions)
 {
 	php_sqlite3_db_object *db_obj;
 	zval *object = ZEND_THIS;
-	bool enableExceptions = 0;
+	zend_bool enableExceptions = 0;
 
 	db_obj = Z_SQLITE3_DB_P(object);
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS(), "|b", &enableExceptions) == FAILURE) {
-		RETURN_THROWS();
+		return;
 	}
 
 	RETVAL_BOOL(db_obj->exception);
@@ -1294,42 +1346,10 @@ PHP_METHOD(SQLite3, enableExceptions)
 }
 /* }}} */
 
-/* {{{ Register a callback function to be used as an authorizer by SQLite. The callback should return SQLite3::OK, SQLite3::IGNORE or SQLite3::DENY. */
-PHP_METHOD(SQLite3, setAuthorizer)
-{
-	php_sqlite3_db_object *db_obj;
-	zval *object = ZEND_THIS;
-	db_obj = Z_SQLITE3_DB_P(object);
-	zend_fcall_info			fci;
-	zend_fcall_info_cache	fcc;
-
-	ZEND_PARSE_PARAMETERS_START(1, 1)
-		Z_PARAM_FUNC_OR_NULL(fci, fcc)
-	ZEND_PARSE_PARAMETERS_END();
-
-	SQLITE3_CHECK_INITIALIZED(db_obj, db_obj->initialised, SQLite3)
-
-	/* Clear previously set callback */
-	if (ZEND_FCI_INITIALIZED(db_obj->authorizer_fci)) {
-		zval_ptr_dtor(&db_obj->authorizer_fci.function_name);
-		db_obj->authorizer_fci.size = 0;
-	}
-
-	/* Only enable userland authorizer if argument is not NULL */
-	if (ZEND_FCI_INITIALIZED(fci)) {
-		db_obj->authorizer_fci = fci;
-		Z_ADDREF(db_obj->authorizer_fci.function_name);
-		db_obj->authorizer_fcc = fcc;
-	}
-
-	RETURN_TRUE;
-}
-/* }}} */
-
-
 #if SQLITE_VERSION_NUMBER >= 3006011
-/* {{{ Backups the current database to another one. */
-PHP_METHOD(SQLite3, backup)
+/* {{{ proto bool SQLite3::backup(SQLite3 destination_db[, string source_dbname = "main"[, string destination_dbname = "main"]])
+   Backups the current database to another one. */
+PHP_METHOD(sqlite3, backup)
 {
 	php_sqlite3_db_object *source_obj;
 	php_sqlite3_db_object *destination_obj;
@@ -1340,12 +1360,12 @@ PHP_METHOD(SQLite3, backup)
 	sqlite3_backup *dbBackup;
 	int rc; // Return code
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "O|pp", &destination_zval, php_sqlite3_sc_entry, &source_dbname, &source_dbname_length, &destination_dbname, &destination_dbname_length) == FAILURE) {
-		RETURN_THROWS();
-	}
-
 	source_obj = Z_SQLITE3_DB_P(source_zval);
 	SQLITE3_CHECK_INITIALIZED(source_obj, source_obj->initialised, SQLite3)
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "O|ss", &destination_zval, php_sqlite3_sc_entry, &source_dbname, &source_dbname_length, &destination_dbname, &destination_dbname_length) == FAILURE) {
+		return;
+	}
 
 	destination_obj = Z_SQLITE3_DB_P(destination_zval);
 
@@ -1383,14 +1403,17 @@ PHP_METHOD(SQLite3, backup)
 /* }}} */
 #endif
 
-/* {{{ Returns the number of parameters within the prepared statement. */
-PHP_METHOD(SQLite3Stmt, paramCount)
+/* {{{ proto int SQLite3Stmt::paramCount()
+   Returns the number of parameters within the prepared statement. */
+PHP_METHOD(sqlite3stmt, paramCount)
 {
 	php_sqlite3_stmt *stmt_obj;
 	zval *object = ZEND_THIS;
 	stmt_obj = Z_SQLITE3_STMT_P(object);
 
-	ZEND_PARSE_PARAMETERS_NONE();
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 
 	SQLITE3_CHECK_INITIALIZED(stmt_obj->db_obj, stmt_obj->initialised, SQLite3);
 	SQLITE3_CHECK_INITIALIZED_STMT(stmt_obj->stmt, SQLite3Stmt);
@@ -1399,33 +1422,39 @@ PHP_METHOD(SQLite3Stmt, paramCount)
 }
 /* }}} */
 
-/* {{{ Closes the prepared statement. */
-PHP_METHOD(SQLite3Stmt, close)
+/* {{{ proto bool SQLite3Stmt::close()
+   Closes the prepared statement. */
+PHP_METHOD(sqlite3stmt, close)
 {
 	php_sqlite3_stmt *stmt_obj;
 	zval *object = ZEND_THIS;
 	stmt_obj = Z_SQLITE3_STMT_P(object);
 
-	ZEND_PARSE_PARAMETERS_NONE();
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 
 	SQLITE3_CHECK_INITIALIZED(stmt_obj->db_obj, stmt_obj->initialised, SQLite3);
 
 	if(stmt_obj->db_obj) {
-		zend_llist_del_element(&(stmt_obj->db_obj->free_list), object, (int (*)(void *, void *)) php_sqlite3_compare_stmt_zval_free);
+        	zend_llist_del_element(&(stmt_obj->db_obj->free_list), object, (int (*)(void *, void *)) php_sqlite3_compare_stmt_zval_free);
 	}
 
 	RETURN_TRUE;
 }
 /* }}} */
 
-/* {{{ Reset the prepared statement to the state before it was executed, bindings still remain. */
-PHP_METHOD(SQLite3Stmt, reset)
+/* {{{ proto bool SQLite3Stmt::reset()
+   Reset the prepared statement to the state before it was executed, bindings still remain. */
+PHP_METHOD(sqlite3stmt, reset)
 {
 	php_sqlite3_stmt *stmt_obj;
 	zval *object = ZEND_THIS;
 	stmt_obj = Z_SQLITE3_STMT_P(object);
 
-	ZEND_PARSE_PARAMETERS_NONE();
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 
 	SQLITE3_CHECK_INITIALIZED(stmt_obj->db_obj, stmt_obj->initialised, SQLite3);
 	SQLITE3_CHECK_INITIALIZED_STMT(stmt_obj->stmt, SQLite3Stmt);
@@ -1438,14 +1467,17 @@ PHP_METHOD(SQLite3Stmt, reset)
 }
 /* }}} */
 
-/* {{{ Clear all current bound parameters. */
-PHP_METHOD(SQLite3Stmt, clear)
+/* {{{ proto bool SQLite3Stmt::clear()
+   Clear all current bound parameters. */
+PHP_METHOD(sqlite3stmt, clear)
 {
 	php_sqlite3_stmt *stmt_obj;
 	zval *object = ZEND_THIS;
 	stmt_obj = Z_SQLITE3_STMT_P(object);
 
-	ZEND_PARSE_PARAMETERS_NONE();
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 
 	SQLITE3_CHECK_INITIALIZED(stmt_obj->db_obj, stmt_obj->initialised, SQLite3);
 	SQLITE3_CHECK_INITIALIZED_STMT(stmt_obj->stmt, SQLite3Stmt);
@@ -1465,14 +1497,17 @@ PHP_METHOD(SQLite3Stmt, clear)
 }
 /* }}} */
 
-/* {{{ Returns true if a statement is definitely read only */
-PHP_METHOD(SQLite3Stmt, readOnly)
+/* {{{ proto bool SQLite3Stmt::readOnly()
+   Returns true if a statement is definitely read only */
+PHP_METHOD(sqlite3stmt, readOnly)
 {
 	php_sqlite3_stmt *stmt_obj;
 	zval *object = ZEND_THIS;
 	stmt_obj = Z_SQLITE3_STMT_P(object);
 
-	ZEND_PARSE_PARAMETERS_NONE();
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 
 	SQLITE3_CHECK_INITIALIZED(stmt_obj->db_obj, stmt_obj->initialised, SQLite3);
 	SQLITE3_CHECK_INITIALIZED_STMT(stmt_obj->stmt, SQLite3Stmt);
@@ -1592,19 +1627,19 @@ static int php_sqlite3_bind_params(php_sqlite3_stmt *stmt_obj) /* {{{ */
 /* }}} */
 
 
-/* {{{ Returns the SQL statement used to prepare the query. If expanded is true, binded parameters and values will be expanded. */
-PHP_METHOD(SQLite3Stmt, getSQL)
+/* {{{ proto string SQLite3Stmt::getSQL([expanded = false])
+   Returns the SQL statement used to prepare the query. If expanded is true, binded parameters and values will be expanded. */
+PHP_METHOD(sqlite3stmt, getSQL)
 {
 	php_sqlite3_stmt *stmt_obj;
-	bool expanded = 0;
+	zend_bool expanded = 0;
 	zval *object = getThis();
 	stmt_obj = Z_SQLITE3_STMT_P(object);
 	int bind_rc;
 
-	ZEND_PARSE_PARAMETERS_START(0, 1)
-		Z_PARAM_OPTIONAL
-		Z_PARAM_BOOL(expanded)
-	ZEND_PARSE_PARAMETERS_END();
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "|b", &expanded) == FAILURE) {
+		return;
+	}
 
 	SQLITE3_CHECK_INITIALIZED(stmt_obj->db_obj, stmt_obj->initialised, SQLite3);
 	SQLITE3_CHECK_INITIALIZED_STMT(stmt_obj->stmt, SQLite3Stmt);
@@ -1699,8 +1734,9 @@ static int register_bound_parameter_to_sqlite(struct php_sqlite3_bound_param *pa
 	}
 /* }}} */
 
-/* {{{ Common implementation of ::bindParam() and ::bindValue */
-static void sqlite3stmt_bind(INTERNAL_FUNCTION_PARAMETERS)
+/* {{{ proto bool SQLite3Stmt::bindParam(int parameter_number, mixed parameter [, int type])
+   Bind Parameter to a stmt variable. */
+PHP_METHOD(sqlite3stmt, bindParam)
 {
 	php_sqlite3_stmt *stmt_obj;
 	zval *object = ZEND_THIS;
@@ -1711,12 +1747,11 @@ static void sqlite3stmt_bind(INTERNAL_FUNCTION_PARAMETERS)
 	param.param_number = -1;
 	param.type = SQLITE3_TEXT;
 
-	ZEND_PARSE_PARAMETERS_START(2, 3)
-		Z_PARAM_STR_OR_LONG(param.name, param.param_number)
-		Z_PARAM_ZVAL(parameter)
-		Z_PARAM_OPTIONAL
-		Z_PARAM_LONG(param.type)
-	ZEND_PARSE_PARAMETERS_END();
+	if (zend_parse_parameters_ex(ZEND_PARSE_PARAMS_QUIET, ZEND_NUM_ARGS(), "lz|l", &param.param_number, &parameter, &param.type) == FAILURE) {
+		if (zend_parse_parameters(ZEND_NUM_ARGS(), "Sz|l", &param.name, &parameter, &param.type) == FAILURE) {
+			return;
+		}
+	}
 
 	SQLITE3_CHECK_INITIALIZED(stmt_obj->db_obj, stmt_obj->initialised, SQLite3);
 	SQLITE3_CHECK_INITIALIZED_STMT(stmt_obj->stmt, SQLite3Stmt);
@@ -1738,24 +1773,50 @@ static void sqlite3stmt_bind(INTERNAL_FUNCTION_PARAMETERS)
 }
 /* }}} */
 
-/* {{{ Bind Parameter to a stmt variable. */
-PHP_METHOD(SQLite3Stmt, bindParam)
+/* {{{ proto bool SQLite3Stmt::bindValue(int parameter_number, mixed parameter [, int type])
+   Bind Value of a parameter to a stmt variable. */
+PHP_METHOD(sqlite3stmt, bindValue)
 {
-	sqlite3stmt_bind(INTERNAL_FUNCTION_PARAM_PASSTHRU);
-}
-/* }}} */
+	php_sqlite3_stmt *stmt_obj;
+	zval *object = ZEND_THIS;
+	struct php_sqlite3_bound_param param = {0};
+	zval *parameter;
+	stmt_obj = Z_SQLITE3_STMT_P(object);
 
-/* {{{ Bind Value of a parameter to a stmt variable. */
-PHP_METHOD(SQLite3Stmt, bindValue)
-{
-	sqlite3stmt_bind(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+	param.param_number = -1;
+	param.type = SQLITE3_TEXT;
+
+	if (zend_parse_parameters_ex(ZEND_PARSE_PARAMS_QUIET, ZEND_NUM_ARGS(), "lz|l", &param.param_number, &parameter, &param.type) == FAILURE) {
+		if (zend_parse_parameters(ZEND_NUM_ARGS(), "Sz|l", &param.name, &parameter, &param.type) == FAILURE) {
+			return;
+		}
+	}
+
+	SQLITE3_CHECK_INITIALIZED(stmt_obj->db_obj, stmt_obj->initialised, SQLite3);
+	SQLITE3_CHECK_INITIALIZED_STMT(stmt_obj->stmt, SQLite3Stmt);
+
+	ZVAL_COPY(&param.parameter, parameter);
+
+	if (ZEND_NUM_ARGS() < 3) {
+		PHP_SQLITE3_SET_TYPE(parameter, param);
+	}
+
+	if (!register_bound_parameter_to_sqlite(&param, stmt_obj)) {
+		if (!Z_ISUNDEF(param.parameter)) {
+			zval_ptr_dtor(&(param.parameter));
+			ZVAL_UNDEF(&param.parameter);
+		}
+		RETURN_FALSE;
+	}
+	RETURN_TRUE;
 }
 /* }}} */
 
 #undef PHP_SQLITE3_SET_TYPE
 
-/* {{{ Executes a prepared statement and returns a result set object. */
-PHP_METHOD(SQLite3Stmt, execute)
+/* {{{ proto SQLite3Result SQLite3Stmt::execute()
+   Executes a prepared statement and returns a result set object. */
+PHP_METHOD(sqlite3stmt, execute)
 {
 	php_sqlite3_stmt *stmt_obj;
 	php_sqlite3_result *result;
@@ -1765,7 +1826,9 @@ PHP_METHOD(SQLite3Stmt, execute)
 
 	stmt_obj = Z_SQLITE3_STMT_P(object);
 
-	ZEND_PARSE_PARAMETERS_NONE();
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 
 	SQLITE3_CHECK_INITIALIZED(stmt_obj->db_obj, stmt_obj->initialised, SQLite3);
 
@@ -1792,13 +1855,14 @@ PHP_METHOD(SQLite3Stmt, execute)
 			result->is_prepared_statement = 1;
 			result->db_obj = stmt_obj->db_obj;
 			result->stmt_obj = stmt_obj;
-			ZVAL_OBJ_COPY(&result->stmt_obj_zval, Z_OBJ_P(object));
+			Z_ADDREF_P(object);
+			ZVAL_OBJ(&result->stmt_obj_zval, Z_OBJ_P(object));
 
 			break;
 		}
 		case SQLITE_ERROR:
 			sqlite3_reset(stmt_obj->stmt);
-			ZEND_FALLTHROUGH;
+
 		default:
 			if (!EG(exception)) {
 				php_sqlite3_error(stmt_obj->db_obj, "Unable to execute statement: %s", sqlite3_errmsg(sqlite3_db_handle(stmt_obj->stmt)));
@@ -1811,8 +1875,9 @@ PHP_METHOD(SQLite3Stmt, execute)
 }
 /* }}} */
 
-/* {{{ __constructor for SQLite3Stmt. */
-PHP_METHOD(SQLite3Stmt, __construct)
+/* {{{ proto SQLite3Stmt::__construct(SQLite3 dbobject, String Statement)
+   __constructor for SQLite3Stmt. */
+PHP_METHOD(sqlite3stmt, __construct)
 {
 	php_sqlite3_stmt *stmt_obj;
 	php_sqlite3_db_object *db_obj;
@@ -1825,8 +1890,8 @@ PHP_METHOD(SQLite3Stmt, __construct)
 
 	stmt_obj = Z_SQLITE3_STMT_P(object);
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "OS", &db_zval, php_sqlite3_sc_entry, &sql) == FAILURE) {
-		RETURN_THROWS();
+	if (zend_parse_parameters_throw(ZEND_NUM_ARGS(), "OS", &db_zval, php_sqlite3_sc_entry, &sql) == FAILURE) {
+		return;
 	}
 
 	db_obj = Z_SQLITE3_DB_P(db_zval);
@@ -1840,7 +1905,8 @@ PHP_METHOD(SQLite3Stmt, __construct)
 	}
 
 	stmt_obj->db_obj = db_obj;
-	ZVAL_OBJ_COPY(&stmt_obj->db_obj_zval, Z_OBJ_P(db_zval));
+	Z_ADDREF_P(db_zval);
+	ZVAL_OBJ(&stmt_obj->db_obj_zval, Z_OBJ_P(db_zval));
 
 	errcode = sqlite3_prepare_v2(db_obj->db, ZSTR_VAL(sql), ZSTR_LEN(sql), &(stmt_obj->stmt), NULL);
 	if (errcode != SQLITE_OK) {
@@ -1859,23 +1925,27 @@ PHP_METHOD(SQLite3Stmt, __construct)
 }
 /* }}} */
 
-/* {{{ Number of columns in the result set. */
-PHP_METHOD(SQLite3Result, numColumns)
+/* {{{ proto int SQLite3Result::numColumns()
+   Number of columns in the result set. */
+PHP_METHOD(sqlite3result, numColumns)
 {
 	php_sqlite3_result *result_obj;
 	zval *object = ZEND_THIS;
 	result_obj = Z_SQLITE3_RESULT_P(object);
 
-	ZEND_PARSE_PARAMETERS_NONE();
-
 	SQLITE3_CHECK_INITIALIZED(result_obj->db_obj, result_obj->stmt_obj->initialised, SQLite3Result)
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 
 	RETURN_LONG(sqlite3_column_count(result_obj->stmt_obj->stmt));
 }
 /* }}} */
 
-/* {{{ Returns the name of the nth column. */
-PHP_METHOD(SQLite3Result, columnName)
+/* {{{ proto string SQLite3Result::columnName(int column)
+   Returns the name of the nth column. */
+PHP_METHOD(sqlite3result, columnName)
 {
 	php_sqlite3_result *result_obj;
 	zval *object = ZEND_THIS;
@@ -1883,12 +1953,11 @@ PHP_METHOD(SQLite3Result, columnName)
 	char *column_name;
 	result_obj = Z_SQLITE3_RESULT_P(object);
 
-	ZEND_PARSE_PARAMETERS_START(1, 1)
-		Z_PARAM_LONG(column)
-	ZEND_PARSE_PARAMETERS_END();
-
 	SQLITE3_CHECK_INITIALIZED(result_obj->db_obj, result_obj->stmt_obj->initialised, SQLite3Result)
 
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "l", &column) == FAILURE) {
+		return;
+	}
 	column_name = (char*) sqlite3_column_name(result_obj->stmt_obj->stmt, column);
 
 	if (column_name == NULL) {
@@ -1899,19 +1968,20 @@ PHP_METHOD(SQLite3Result, columnName)
 }
 /* }}} */
 
-/* {{{ Returns the type of the nth column. */
-PHP_METHOD(SQLite3Result, columnType)
+/* {{{ proto int SQLite3Result::columnType(int column)
+   Returns the type of the nth column. */
+PHP_METHOD(sqlite3result, columnType)
 {
 	php_sqlite3_result *result_obj;
 	zval *object = ZEND_THIS;
 	zend_long column = 0;
 	result_obj = Z_SQLITE3_RESULT_P(object);
 
-	ZEND_PARSE_PARAMETERS_START(1, 1)
-		Z_PARAM_LONG(column)
-	ZEND_PARSE_PARAMETERS_END();
-
 	SQLITE3_CHECK_INITIALIZED(result_obj->db_obj, result_obj->stmt_obj->initialised, SQLite3Result)
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "l", &column) == FAILURE) {
+		return;
+	}
 
 	if (!sqlite3_data_count(result_obj->stmt_obj->stmt)) {
 		RETURN_FALSE;
@@ -1921,8 +1991,9 @@ PHP_METHOD(SQLite3Result, columnType)
 }
 /* }}} */
 
-/* {{{ Fetch a result row as both an associative or numerically indexed array or both. */
-PHP_METHOD(SQLite3Result, fetchArray)
+/* {{{ proto array SQLite3Result::fetchArray([int mode])
+   Fetch a result row as both an associative or numerically indexed array or both. */
+PHP_METHOD(sqlite3result, fetchArray)
 {
 	php_sqlite3_result *result_obj;
 	zval *object = ZEND_THIS;
@@ -1930,26 +2001,23 @@ PHP_METHOD(SQLite3Result, fetchArray)
 	zend_long mode = PHP_SQLITE3_BOTH;
 	result_obj = Z_SQLITE3_RESULT_P(object);
 
-	ZEND_PARSE_PARAMETERS_START(0, 1)
-		Z_PARAM_OPTIONAL
-		Z_PARAM_LONG(mode)
-	ZEND_PARSE_PARAMETERS_END();
-
 	SQLITE3_CHECK_INITIALIZED(result_obj->db_obj, result_obj->stmt_obj->initialised, SQLite3Result)
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "|l", &mode) == FAILURE) {
+		return;
+	}
 
 	ret = sqlite3_step(result_obj->stmt_obj->stmt);
 	switch (ret) {
 		case SQLITE_ROW:
 			/* If there was no return value then just skip fetching */
 			if (!USED_RET()) {
-				RETURN_FALSE;
+				return;
 			}
 
 			array_init(return_value);
-			
-			int column_count = sqlite3_data_count(result_obj->stmt_obj->stmt);
 
-			for (i = 0; i < column_count; i++) {
+			for (i = 0; i < sqlite3_data_count(result_obj->stmt_obj->stmt); i++) {
 				zval data;
 
 				sqlite_value_to_zval(result_obj->stmt_obj->stmt, i, &data);
@@ -1979,16 +2047,19 @@ PHP_METHOD(SQLite3Result, fetchArray)
 }
 /* }}} */
 
-/* {{{ Resets the result set back to the first row. */
-PHP_METHOD(SQLite3Result, reset)
+/* {{{ proto bool SQLite3Result::reset()
+   Resets the result set back to the first row. */
+PHP_METHOD(sqlite3result, reset)
 {
 	php_sqlite3_result *result_obj;
 	zval *object = ZEND_THIS;
 	result_obj = Z_SQLITE3_RESULT_P(object);
 
-	ZEND_PARSE_PARAMETERS_NONE();
-
 	SQLITE3_CHECK_INITIALIZED(result_obj->db_obj, result_obj->stmt_obj->initialised, SQLite3Result)
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 
 	if (sqlite3_reset(result_obj->stmt_obj->stmt) != SQLITE_OK) {
 		RETURN_FALSE;
@@ -1998,16 +2069,19 @@ PHP_METHOD(SQLite3Result, reset)
 }
 /* }}} */
 
-/* {{{ Closes the result set. */
-PHP_METHOD(SQLite3Result, finalize)
+/* {{{ proto bool SQLite3Result::finalize()
+   Closes the result set. */
+PHP_METHOD(sqlite3result, finalize)
 {
 	php_sqlite3_result *result_obj;
 	zval *object = ZEND_THIS;
 	result_obj = Z_SQLITE3_RESULT_P(object);
 
-	ZEND_PARSE_PARAMETERS_NONE();
-
 	SQLITE3_CHECK_INITIALIZED(result_obj->db_obj, result_obj->stmt_obj->initialised, SQLite3Result)
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 
 	/* We need to finalize an internal statement */
 	if (result_obj->is_prepared_statement == 0) {
@@ -2021,103 +2095,219 @@ PHP_METHOD(SQLite3Result, finalize)
 }
 /* }}} */
 
-/* {{{ __constructor for SQLite3Result. */
-PHP_METHOD(SQLite3Result, __construct)
+/* {{{ proto SQLite3Result::__construct()
+   __constructor for SQLite3Result. */
+PHP_METHOD(sqlite3result, __construct)
 {
 	zend_throw_exception(zend_ce_exception, "SQLite3Result cannot be directly instantiated", 0);
 }
 /* }}} */
 
-/* {{{ Authorization Callback */
-static int php_sqlite3_authorizer(void *autharg, int action, const char *arg1, const char *arg2, const char *arg3, const char *arg4)
+/* {{{ arginfo */
+ZEND_BEGIN_ARG_INFO_EX(arginfo_sqlite3_open, 0, 0, 1)
+	ZEND_ARG_INFO(0, filename)
+	ZEND_ARG_INFO(0, flags)
+	ZEND_ARG_INFO(0, encryption_key)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO(arginfo_sqlite3_busytimeout, 0)
+	ZEND_ARG_INFO(0, ms)
+ZEND_END_ARG_INFO()
+
+#ifndef SQLITE_OMIT_LOAD_EXTENSION
+ZEND_BEGIN_ARG_INFO(arginfo_sqlite3_loadextension, 0)
+	ZEND_ARG_INFO(0, shared_library)
+ZEND_END_ARG_INFO()
+#endif
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_sqlite3_escapestring, 0, 0, 1)
+	ZEND_ARG_INFO(0, value)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_sqlite3_query, 0, 0, 1)
+	ZEND_ARG_INFO(0, query)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_sqlite3_querysingle, 0, 0, 1)
+	ZEND_ARG_INFO(0, query)
+	ZEND_ARG_INFO(0, entire_row)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_sqlite3_createfunction, 0, 0, 2)
+	ZEND_ARG_INFO(0, name)
+	ZEND_ARG_INFO(0, callback)
+	ZEND_ARG_INFO(0, argument_count)
+	ZEND_ARG_INFO(0, flags)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_sqlite3_createaggregate, 0, 0, 3)
+	ZEND_ARG_INFO(0, name)
+	ZEND_ARG_INFO(0, step_callback)
+	ZEND_ARG_INFO(0, final_callback)
+	ZEND_ARG_INFO(0, argument_count)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_sqlite3_createcollation, 0, 0, 2)
+	ZEND_ARG_INFO(0, name)
+	ZEND_ARG_INFO(0, callback)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_sqlite3_openblob, 0, 0, 3)
+	ZEND_ARG_INFO(0, table)
+	ZEND_ARG_INFO(0, column)
+	ZEND_ARG_INFO(0, rowid)
+	ZEND_ARG_INFO(0, dbname)
+	ZEND_ARG_INFO(0, flags)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_sqlite3_enableexceptions, 0, 0, 0)
+	ZEND_ARG_INFO(0, enableExceptions)
+ZEND_END_ARG_INFO()
+
+#if SQLITE_VERSION_NUMBER >= 3006011
+ZEND_BEGIN_ARG_INFO_EX(arginfo_sqlite3_backup, 0, 0, 1)
+	ZEND_ARG_INFO(0, destination_db)
+	ZEND_ARG_INFO(0, source_dbname)
+	ZEND_ARG_INFO(0, destination_dbname)
+ZEND_END_ARG_INFO()
+#endif
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_sqlite3stmt_bindparam, 0, 0, 2)
+	ZEND_ARG_INFO(0, param_number)
+	ZEND_ARG_INFO(1, param)
+	ZEND_ARG_INFO(0, type)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_sqlite3stmt_bindvalue, 0, 0, 2)
+	ZEND_ARG_INFO(0, param_number)
+	ZEND_ARG_INFO(0, param)
+	ZEND_ARG_INFO(0, type)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_sqlite3stmt_construct, 0, 0, 1)
+	ZEND_ARG_INFO(0, sqlite3)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_sqlite3stmt_getsql, 0, 0, 0)
+	ZEND_ARG_INFO(0, expanded)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_sqlite3result_columnname, 0, 0, 1)
+	ZEND_ARG_INFO(0, column_number)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_sqlite3result_columntype, 0, 0, 1)
+	ZEND_ARG_INFO(0, column_number)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_sqlite3result_fetcharray, 0, 0, 0)
+	ZEND_ARG_INFO(0, mode)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_sqlite3_enableextended, 0, 0, 1)
+	ZEND_ARG_INFO(0, enable)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO(arginfo_sqlite3_void, 0)
+ZEND_END_ARG_INFO()
+/* }}} */
+
+/* {{{ php_sqlite3_class_methods */
+static const zend_function_entry php_sqlite3_class_methods[] = {
+	PHP_ME(sqlite3,		open,						arginfo_sqlite3_open, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3,		close,						arginfo_sqlite3_void, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3,		exec,						arginfo_sqlite3_query, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3,		version,					arginfo_sqlite3_void, ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
+	PHP_ME(sqlite3,		lastInsertRowID,			arginfo_sqlite3_void, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3,		lastErrorCode,				arginfo_sqlite3_void, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3,		lastExtendedErrorCode,		arginfo_sqlite3_void, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3,		enableExtendedResultCodes,	arginfo_sqlite3_enableextended, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3,		lastErrorMsg,				arginfo_sqlite3_void, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3,		busyTimeout,				arginfo_sqlite3_busytimeout, ZEND_ACC_PUBLIC)
+#ifndef SQLITE_OMIT_LOAD_EXTENSION
+	PHP_ME(sqlite3,		loadExtension,				arginfo_sqlite3_loadextension, ZEND_ACC_PUBLIC)
+#endif
+	PHP_ME(sqlite3,		changes,					arginfo_sqlite3_void, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3,		escapeString,				arginfo_sqlite3_escapestring, ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
+	PHP_ME(sqlite3,		prepare,					arginfo_sqlite3_query, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3,		query,						arginfo_sqlite3_query, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3,		querySingle,				arginfo_sqlite3_querysingle, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3,		createFunction,				arginfo_sqlite3_createfunction, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3,		createAggregate,			arginfo_sqlite3_createaggregate, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3,		createCollation,			arginfo_sqlite3_createcollation, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3,		openBlob,					arginfo_sqlite3_openblob, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3,		enableExceptions,			arginfo_sqlite3_enableexceptions, ZEND_ACC_PUBLIC)
+#if SQLITE_VERSION_NUMBER >= 3006011
+	PHP_ME(sqlite3,		backup,						arginfo_sqlite3_backup, ZEND_ACC_PUBLIC)
+#endif
+	/* Aliases */
+	PHP_MALIAS(sqlite3,	__construct, open, arginfo_sqlite3_open, ZEND_ACC_PUBLIC)
+	PHP_FE_END
+};
+/* }}} */
+
+/* {{{ php_sqlite3_stmt_class_methods */
+static const zend_function_entry php_sqlite3_stmt_class_methods[] = {
+	PHP_ME(sqlite3stmt, paramCount,	arginfo_sqlite3_void, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3stmt, close,		arginfo_sqlite3_void, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3stmt, reset,		arginfo_sqlite3_void, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3stmt, clear,		arginfo_sqlite3_void, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3stmt, execute,	arginfo_sqlite3_void, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3stmt, bindParam,	arginfo_sqlite3stmt_bindparam, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3stmt, bindValue,	arginfo_sqlite3stmt_bindvalue, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3stmt, readOnly,	arginfo_sqlite3_void, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3stmt, getSQL,		arginfo_sqlite3stmt_getsql, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3stmt, __construct, arginfo_sqlite3stmt_construct, ZEND_ACC_PRIVATE)
+	PHP_FE_END
+};
+/* }}} */
+
+/* {{{ php_sqlite3_result_class_methods */
+static const zend_function_entry php_sqlite3_result_class_methods[] = {
+	PHP_ME(sqlite3result, numColumns,		arginfo_sqlite3_void, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3result, columnName,		arginfo_sqlite3result_columnname, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3result, columnType,		arginfo_sqlite3result_columntype, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3result, fetchArray,		arginfo_sqlite3result_fetcharray, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3result, reset,			arginfo_sqlite3_void, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3result, finalize,			arginfo_sqlite3_void, ZEND_ACC_PUBLIC)
+	PHP_ME(sqlite3result, __construct, 		arginfo_sqlite3_void, ZEND_ACC_PRIVATE)
+	PHP_FE_END
+};
+/* }}} */
+
+/* {{{ Authorization Callback
+*/
+static int php_sqlite3_authorizer(void *autharg, int access_type, const char *arg3, const char *arg4, const char *arg5, const char *arg6)
 {
-	/* Check open_basedir restrictions first */
-	if (PG(open_basedir) && *PG(open_basedir)) {
-		if (action == SQLITE_ATTACH) {
-			if (memcmp(arg1, ":memory:", sizeof(":memory:")) && *arg1) {
-				if (strncmp(arg1, "file:", 5) == 0) {
+	switch (access_type) {
+		case SQLITE_ATTACH:
+		{
+			if (memcmp(arg3, ":memory:", sizeof(":memory:")) && *arg3) {
+				if (strncmp(arg3, "file:", 5) == 0) {
 					/* starts with "file:" */
-					if (!arg1[5]) {
+					if (!arg3[5]) {
 						return SQLITE_DENY;
 					}
-					if (php_check_open_basedir(arg1 + 5)) {
+					if (php_check_open_basedir(arg3 + 5)) {
 						return SQLITE_DENY;
 					}
 				}
-				if (php_check_open_basedir(arg1)) {
+				if (php_check_open_basedir(arg3)) {
 					return SQLITE_DENY;
 				}
 			}
+			return SQLITE_OK;
 		}
+
+		default:
+			/* access allowed */
+			return SQLITE_OK;
 	}
-
-	php_sqlite3_db_object *db_obj = (php_sqlite3_db_object *)autharg;
-	zend_fcall_info *fci = &db_obj->authorizer_fci;
-
-	/* fallback to access allowed if authorizer callback is not defined */
-	if (fci->size == 0) {
-		return SQLITE_OK;
-	}
-
-	/* call userland authorizer callback, if set */
-	zval retval;
-	zval argv[5];
-
-	ZVAL_LONG(&argv[0], action);
-
-	if (NULL == arg1) {
-		ZVAL_NULL(&argv[1]);
-	} else {
-		ZVAL_STRING(&argv[1], arg1);
-	}
-
-	if (NULL == arg2) {
-		ZVAL_NULL(&argv[2]);
-	} else {
-		ZVAL_STRING(&argv[2], arg2);
-	}
-
-	if (NULL == arg3) {
-		ZVAL_NULL(&argv[3]);
-	} else {
-		ZVAL_STRING(&argv[3], arg3);
-	}
-
-	if (NULL == arg4) {
-		ZVAL_NULL(&argv[4]);
-	} else {
-		ZVAL_STRING(&argv[4], arg4);
-	}
-
-	fci->retval = &retval;
-	fci->param_count = 5;
-	fci->params = argv;
-
-	int authreturn = SQLITE_DENY;
-
-	if (zend_call_function(fci, &db_obj->authorizer_fcc) != SUCCESS || Z_ISUNDEF(retval)) {
-		php_sqlite3_error(db_obj, "An error occurred while invoking the authorizer callback");
-	} else {
-		if (Z_TYPE(retval) != IS_LONG) {
-			php_sqlite3_error(db_obj, "The authorizer callback returned an invalid type: expected int");
-		} else {
-			authreturn = Z_LVAL(retval);
-
-			if (authreturn != SQLITE_OK && authreturn != SQLITE_IGNORE && authreturn != SQLITE_DENY) {
-				php_sqlite3_error(db_obj, "The authorizer callback returned an invalid value");
-				authreturn = SQLITE_DENY;
-			}
-		}
-	}
-
-	zend_fcall_info_args_clear(fci, 0);
-	zval_ptr_dtor(&retval);
-
-	return authreturn;
 }
 /* }}} */
 
-/* {{{ php_sqlite3_free_list_dtor */
+/* {{{ php_sqlite3_free_list_dtor
+*/
 static void php_sqlite3_free_list_dtor(void **item)
 {
 	php_sqlite3_free_list *free_item = (php_sqlite3_free_list *)*item;
@@ -2150,11 +2340,6 @@ static void php_sqlite3_object_free_storage(zend_object *object) /* {{{ */
 
 	if (!intern) {
 		return;
-	}
-
-	/* Release function_name from authorizer */
-	if (intern->authorizer_fci.size > 0) {
-		zval_ptr_dtor(&intern->authorizer_fci.function_name);
 	}
 
 	while (intern->funcs) {
@@ -2314,10 +2499,13 @@ static void sqlite3_param_dtor(zval *data) /* {{{ */
 }
 /* }}} */
 
-/* {{{ PHP_MINIT_FUNCTION */
+/* {{{ PHP_MINIT_FUNCTION
+*/
 PHP_MINIT_FUNCTION(sqlite3)
 {
-#ifdef ZTS
+	zend_class_entry ce;
+
+#if defined(ZTS)
 	/* Refuse to load if this wasn't a threasafe library loaded */
 	if (!sqlite3_threadsafe()) {
 		php_error_docref(NULL, E_WARNING, "A thread safe version of SQLite is required when using a thread safe version of PHP.");
@@ -2330,25 +2518,34 @@ PHP_MINIT_FUNCTION(sqlite3)
 	memcpy(&sqlite3_result_object_handlers, &std_object_handlers, sizeof(zend_object_handlers));
 
 	/* Register SQLite 3 Class */
+	INIT_CLASS_ENTRY(ce, "SQLite3", php_sqlite3_class_methods);
+	ce.create_object = php_sqlite3_object_new;
 	sqlite3_object_handlers.offset = XtOffsetOf(php_sqlite3_db_object, zo);
 	sqlite3_object_handlers.clone_obj = NULL;
 	sqlite3_object_handlers.free_obj = php_sqlite3_object_free_storage;
-	php_sqlite3_sc_entry = register_class_SQLite3();
-	php_sqlite3_sc_entry->create_object = php_sqlite3_object_new;
+	php_sqlite3_sc_entry = zend_register_internal_class(&ce);
+	php_sqlite3_sc_entry->serialize = zend_class_serialize_deny;
+	php_sqlite3_sc_entry->unserialize = zend_class_unserialize_deny;
 
 	/* Register SQLite 3 Prepared Statement Class */
+	INIT_CLASS_ENTRY(ce, "SQLite3Stmt", php_sqlite3_stmt_class_methods);
+	ce.create_object = php_sqlite3_stmt_object_new;
 	sqlite3_stmt_object_handlers.offset = XtOffsetOf(php_sqlite3_stmt, zo);
 	sqlite3_stmt_object_handlers.clone_obj = NULL;
 	sqlite3_stmt_object_handlers.free_obj = php_sqlite3_stmt_object_free_storage;
-	php_sqlite3_stmt_entry = register_class_SQLite3Stmt();
-	php_sqlite3_stmt_entry->create_object = php_sqlite3_stmt_object_new;
+	php_sqlite3_stmt_entry = zend_register_internal_class(&ce);
+	php_sqlite3_stmt_entry->serialize = zend_class_serialize_deny;
+	php_sqlite3_stmt_entry->unserialize = zend_class_unserialize_deny;
 
 	/* Register SQLite 3 Result Class */
+	INIT_CLASS_ENTRY(ce, "SQLite3Result", php_sqlite3_result_class_methods);
+	ce.create_object = php_sqlite3_result_object_new;
 	sqlite3_result_object_handlers.offset = XtOffsetOf(php_sqlite3_result, zo);
 	sqlite3_result_object_handlers.clone_obj = NULL;
 	sqlite3_result_object_handlers.free_obj = php_sqlite3_result_object_free_storage;
-	php_sqlite3_result_entry = register_class_SQLite3Result();
-	php_sqlite3_result_entry->create_object = php_sqlite3_result_object_new;
+	php_sqlite3_result_entry = zend_register_internal_class(&ce);
+	php_sqlite3_result_entry->serialize = zend_class_serialize_deny;
+	php_sqlite3_result_entry->unserialize = zend_class_unserialize_deny;
 
 	REGISTER_INI_ENTRIES();
 
@@ -2366,51 +2563,6 @@ PHP_MINIT_FUNCTION(sqlite3)
 	REGISTER_LONG_CONSTANT("SQLITE3_OPEN_READWRITE", SQLITE_OPEN_READWRITE, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SQLITE3_OPEN_CREATE", SQLITE_OPEN_CREATE, CONST_CS | CONST_PERSISTENT);
 
-	/* Class constants */
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "OK", sizeof("OK") - 1, SQLITE_OK);
-
-	/* Constants for authorizer return */
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "DENY", sizeof("DENY") - 1, SQLITE_DENY);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "IGNORE", sizeof("IGNORE") - 1, SQLITE_IGNORE);
-
-	/* Constants for authorizer actions */
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "CREATE_INDEX", sizeof("CREATE_INDEX") - 1, SQLITE_CREATE_INDEX);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "CREATE_TABLE", sizeof("CREATE_TABLE") - 1, SQLITE_CREATE_TABLE);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "CREATE_TEMP_INDEX", sizeof("CREATE_TEMP_INDEX") - 1, SQLITE_CREATE_TEMP_INDEX);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "CREATE_TEMP_TABLE", sizeof("CREATE_TEMP_TABLE") - 1, SQLITE_CREATE_TEMP_TABLE);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "CREATE_TEMP_TRIGGER", sizeof("CREATE_TEMP_TRIGGER") - 1, SQLITE_CREATE_TEMP_TRIGGER);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "CREATE_TEMP_VIEW", sizeof("CREATE_TEMP_VIEW") - 1, SQLITE_CREATE_TEMP_VIEW);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "CREATE_TRIGGER", sizeof("CREATE_TRIGGER") - 1, SQLITE_CREATE_TRIGGER);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "CREATE_VIEW", sizeof("CREATE_VIEW") - 1, SQLITE_CREATE_VIEW);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "DELETE", sizeof("DELETE") - 1, SQLITE_DELETE);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "DROP_INDEX", sizeof("DROP_INDEX") - 1, SQLITE_DROP_INDEX);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "DROP_TABLE", sizeof("DROP_TABLE") - 1, SQLITE_DROP_TABLE);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "DROP_TEMP_INDEX", sizeof("DROP_TEMP_INDEX") - 1, SQLITE_DROP_TEMP_INDEX);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "DROP_TEMP_TABLE", sizeof("DROP_TEMP_TABLE") - 1, SQLITE_DROP_TEMP_TABLE);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "DROP_TEMP_TRIGGER", sizeof("DROP_TEMP_TRIGGER") - 1, SQLITE_DROP_TEMP_TRIGGER);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "DROP_TEMP_VIEW", sizeof("DROP_TEMP_VIEW") - 1, SQLITE_DROP_TEMP_VIEW);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "DROP_TRIGGER", sizeof("DROP_TRIGGER") - 1, SQLITE_DROP_TRIGGER);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "DROP_VIEW", sizeof("DROP_VIEW") - 1, SQLITE_DROP_VIEW);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "INSERT", sizeof("INSERT") - 1, SQLITE_INSERT);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "PRAGMA", sizeof("PRAGMA") - 1, SQLITE_PRAGMA);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "READ", sizeof("READ") - 1, SQLITE_READ);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "SELECT", sizeof("SELECT") - 1, SQLITE_SELECT);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "TRANSACTION", sizeof("TRANSACTION") - 1, SQLITE_TRANSACTION);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "UPDATE", sizeof("UPDATE") - 1, SQLITE_UPDATE);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "ATTACH", sizeof("ATTACH") - 1, SQLITE_ATTACH);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "DETACH", sizeof("DETACH") - 1, SQLITE_DETACH);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "ALTER_TABLE", sizeof("ALTER_TABLE") - 1, SQLITE_ALTER_TABLE);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "REINDEX", sizeof("REINDEX") - 1, SQLITE_REINDEX);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "ANALYZE", sizeof("ANALYZE") - 1, SQLITE_ANALYZE);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "CREATE_VTABLE", sizeof("CREATE_VTABLE") - 1, SQLITE_CREATE_VTABLE);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "DROP_VTABLE", sizeof("DROP_VTABLE") - 1, SQLITE_DROP_VTABLE);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "FUNCTION", sizeof("FUNCTION") - 1, SQLITE_FUNCTION);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "SAVEPOINT", sizeof("SAVEPOINT") - 1, SQLITE_SAVEPOINT);
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "COPY", sizeof("COPY") - 1, SQLITE_COPY);
-#ifdef SQLITE_RECURSIVE
-	zend_declare_class_constant_long(php_sqlite3_sc_entry, "RECURSIVE", sizeof("RECURSIVE") - 1, SQLITE_RECURSIVE);
-#endif
-
 #ifdef SQLITE_DETERMINISTIC
 	REGISTER_LONG_CONSTANT("SQLITE3_DETERMINISTIC", SQLITE_DETERMINISTIC, CONST_CS | CONST_PERSISTENT);
 #endif
@@ -2419,7 +2571,8 @@ PHP_MINIT_FUNCTION(sqlite3)
 }
 /* }}} */
 
-/* {{{ PHP_MSHUTDOWN_FUNCTION */
+/* {{{ PHP_MSHUTDOWN_FUNCTION
+*/
 PHP_MSHUTDOWN_FUNCTION(sqlite3)
 {
 	UNREGISTER_INI_ENTRIES();
@@ -2428,7 +2581,8 @@ PHP_MSHUTDOWN_FUNCTION(sqlite3)
 }
 /* }}} */
 
-/* {{{ PHP_MINFO_FUNCTION */
+/* {{{ PHP_MINFO_FUNCTION
+*/
 PHP_MINFO_FUNCTION(sqlite3)
 {
 	php_info_print_table_start();
@@ -2440,7 +2594,8 @@ PHP_MINFO_FUNCTION(sqlite3)
 }
 /* }}} */
 
-/* {{{ PHP_GINIT_FUNCTION */
+/* {{{ PHP_GINIT_FUNCTION
+*/
 static PHP_GINIT_FUNCTION(sqlite3)
 {
 #if defined(COMPILE_DL_SQLITE3) && defined(ZTS)
@@ -2450,7 +2605,8 @@ static PHP_GINIT_FUNCTION(sqlite3)
 }
 /* }}} */
 
-/* {{{ sqlite3_module_entry */
+/* {{{ sqlite3_module_entry
+*/
 zend_module_entry sqlite3_module_entry = {
 	STANDARD_MODULE_HEADER,
 	"sqlite3",

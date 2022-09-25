@@ -1,9 +1,9 @@
 --TEST--
 mysqli_result->lengths
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 ?>
 --FILE--
@@ -24,11 +24,7 @@ require_once('skipifconnectfailure.inc');
     var_dump($res->lengths);
 
     $res->free_result();
-    try {
-        $res->lengths;
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    var_dump($res->lengths);
     $mysqli->close();
     print "done!";
 ?>
@@ -39,7 +35,7 @@ require_once('skipifconnectfailure.inc');
 <?php
     require_once("clean_table.inc");
 ?>
---EXPECT--
+--EXPECTF--
 NULL
 array(2) {
   [0]=>
@@ -48,5 +44,7 @@ array(2) {
   int(1)
 }
 NULL
-Property access is not allowed yet
+
+Warning: main(): Property access is not allowed yet in %s on line %d
+bool(false)
 done!

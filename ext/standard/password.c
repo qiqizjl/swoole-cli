@@ -1,11 +1,13 @@
 /*
    +----------------------------------------------------------------------+
+   | PHP Version 7                                                        |
+   +----------------------------------------------------------------------+
    | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
-   | https://www.php.net/license/3_01.txt                                 |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -38,13 +40,30 @@
 static zend_array php_password_algos;
 
 int php_password_algo_register(const char *ident, const php_password_algo *algo) {
-	zend_string *key = zend_string_init_interned(ident, strlen(ident), 1);
-	return zend_hash_add_ptr(&php_password_algos, key, (void *) algo) ? SUCCESS : FAILURE;
+	zval zalgo;
+	ZVAL_PTR(&zalgo, (php_password_algo*)algo);
+	if (zend_hash_str_add(&php_password_algos, ident, strlen(ident), &zalgo)) {
+		return SUCCESS;
+	}
+	return FAILURE;
 }
 
 void php_password_algo_unregister(const char *ident) {
 	zend_hash_str_del(&php_password_algos, ident, strlen(ident));
 }
+
+static int php_password_salt_is_alphabet(const char *str, const size_t len) /* {{{ */
+{
+	size_t i = 0;
+
+	for (i = 0; i < len; i++) {
+		if (!((str[i] >= 'A' && str[i] <= 'Z') || (str[i] >= 'a' && str[i] <= 'z') || (str[i] >= '0' && str[i] <= '9') || str[i] == '.' || str[i] == '/')) {
+			return FAILURE;
+		}
+	}
+	return SUCCESS;
+}
+/* }}} */
 
 static int php_password_salt_to64(const char *str, const size_t str_len, const size_t out_len, char *ret) /* {{{ */
 {
@@ -79,20 +98,20 @@ static zend_string* php_password_make_salt(size_t length) /* {{{ */
 	zend_string *ret, *buffer;
 
 	if (length > (INT_MAX / 3)) {
-		zend_value_error("Length is too large to safely generate");
+		php_error_docref(NULL, E_WARNING, "Length is too large to safely generate");
 		return NULL;
 	}
 
 	buffer = zend_string_alloc(length * 3 / 4 + 1, 0);
 	if (FAILURE == php_random_bytes_silent(ZSTR_VAL(buffer), ZSTR_LEN(buffer))) {
-		zend_value_error("Unable to generate salt");
+		php_error_docref(NULL, E_WARNING, "Unable to generate salt");
 		zend_string_release_ex(buffer, 0);
 		return NULL;
 	}
 
 	ret = zend_string_alloc(length, 0);
 	if (php_password_salt_to64(ZSTR_VAL(buffer), ZSTR_LEN(buffer), length, ZSTR_VAL(ret)) == FAILURE) {
-		zend_value_error("Generated salt too short");
+		php_error_docref(NULL, E_WARNING, "Generated salt too short");
 		zend_string_release_ex(buffer, 0);
 		zend_string_release_ex(ret, 0);
 		return NULL;
@@ -104,16 +123,73 @@ static zend_string* php_password_make_salt(size_t length) /* {{{ */
 /* }}} */
 
 static zend_string* php_password_get_salt(zval *unused_, size_t required_salt_len, HashTable *options) {
-	if (options && zend_hash_str_exists(options, "salt", sizeof("salt") - 1)) {
-		php_error_docref(NULL, E_WARNING, "The \"salt\" option has been ignored, since providing a custom salt is no longer supported");
+	zend_string *buffer;
+	zval *option_buffer;
+
+	if (!options || !(option_buffer = zend_hash_str_find(options, "salt", sizeof("salt") - 1))) {
+		return php_password_make_salt(required_salt_len);
 	}
 
-	return php_password_make_salt(required_salt_len);
+	php_error_docref(NULL, E_DEPRECATED, "Use of the 'salt' option to password_hash is deprecated");
+
+	switch (Z_TYPE_P(option_buffer)) {
+		case IS_STRING:
+			buffer = zend_string_copy(Z_STR_P(option_buffer));
+			break;
+		case IS_LONG:
+		case IS_DOUBLE:
+		case IS_OBJECT:
+			buffer = zval_try_get_string(option_buffer);
+			if (UNEXPECTED(!buffer)) {
+				return NULL;
+			}
+			break;
+		case IS_FALSE:
+		case IS_TRUE:
+		case IS_NULL:
+		case IS_RESOURCE:
+		case IS_ARRAY:
+		default:
+			php_error_docref(NULL, E_WARNING, "Non-string salt parameter supplied");
+			return NULL;
+	}
+
+	/* XXX all the crypt related APIs work with int for string length.
+		That should be revised for size_t and then we maybe don't require
+		the > INT_MAX check. */
+	if (ZEND_SIZE_T_INT_OVFL(ZSTR_LEN(buffer))) {
+		php_error_docref(NULL, E_WARNING, "Supplied salt is too long");
+		zend_string_release_ex(buffer, 0);
+		return NULL;
+	}
+
+	if (ZSTR_LEN(buffer) < required_salt_len) {
+		php_error_docref(NULL, E_WARNING, "Provided salt is too short: %zd expecting %zd", ZSTR_LEN(buffer), required_salt_len);
+		zend_string_release_ex(buffer, 0);
+		return NULL;
+	}
+
+	if (php_password_salt_is_alphabet(ZSTR_VAL(buffer), ZSTR_LEN(buffer)) == FAILURE) {
+		zend_string *salt = zend_string_alloc(required_salt_len, 0);
+		if (php_password_salt_to64(ZSTR_VAL(buffer), ZSTR_LEN(buffer), required_salt_len, ZSTR_VAL(salt)) == FAILURE) {
+			php_error_docref(NULL, E_WARNING, "Provided salt is too short: %zd", ZSTR_LEN(buffer));
+			zend_string_release_ex(salt, 0);
+			zend_string_release_ex(buffer, 0);
+			return NULL;
+		}
+		zend_string_release_ex(buffer, 0);
+		return salt;
+	} else {
+		zend_string *salt = zend_string_alloc(required_salt_len, 0);
+		memcpy(ZSTR_VAL(salt), ZSTR_VAL(buffer), required_salt_len);
+		zend_string_release_ex(buffer, 0);
+		return salt;
+	}
 }
 
 /* bcrypt implementation */
 
-static bool php_password_bcrypt_valid(const zend_string *hash) {
+static zend_bool php_password_bcrypt_valid(const zend_string *hash) {
 	const char *h = ZSTR_VAL(hash);
 	return (ZSTR_LEN(hash) == 60) &&
 		(h[0] == '$') && (h[1] == '2') && (h[2] == 'y');
@@ -133,7 +209,7 @@ static int php_password_bcrypt_get_info(zval *return_value, const zend_string *h
 	return SUCCESS;
 }
 
-static bool php_password_bcrypt_needs_rehash(const zend_string *hash, zend_array *options) {
+static zend_bool php_password_bcrypt_needs_rehash(const zend_string *hash, zend_array *options) {
 	zval *znew_cost;
 	zend_long old_cost = PHP_PASSWORD_BCRYPT_COST;
 	zend_long new_cost = PHP_PASSWORD_BCRYPT_COST;
@@ -151,7 +227,7 @@ static bool php_password_bcrypt_needs_rehash(const zend_string *hash, zend_array
 	return old_cost != new_cost;
 }
 
-static bool php_password_bcrypt_verify(const zend_string *password, const zend_string *hash) {
+static zend_bool php_password_bcrypt_verify(const zend_string *password, const zend_string *hash) {
 	size_t i;
 	int status = 0;
 	zend_string *ret = php_crypt(ZSTR_VAL(password), (int)ZSTR_LEN(password), ZSTR_VAL(hash), (int)ZSTR_LEN(hash), 1);
@@ -189,7 +265,7 @@ static zend_string* php_password_bcrypt_hash(const zend_string *password, zend_a
 	}
 
 	if (cost < 4 || cost > 31) {
-		zend_value_error("Invalid bcrypt cost parameter specified: " ZEND_LONG_FMT, cost);
+		php_error_docref(NULL, E_WARNING, "Invalid bcrypt cost parameter specified: " ZEND_LONG_FMT, cost);
 		return NULL;
 	}
 
@@ -272,7 +348,7 @@ static int php_password_argon2_get_info(zval *return_value, const zend_string *h
 	return SUCCESS;
 }
 
-static bool php_password_argon2_needs_rehash(const zend_string *hash, zend_array *options) {
+static zend_bool php_password_argon2_needs_rehash(const zend_string *hash, zend_array *options) {
 	zend_long v = 0;
 	zend_long new_memory_cost = PHP_PASSWORD_ARGON2_MEMORY_COST, memory_cost = 0;
 	zend_long new_time_cost = PHP_PASSWORD_ARGON2_TIME_COST, time_cost = 0;
@@ -312,7 +388,7 @@ static zend_string *php_password_argon2_hash(const zend_string *password, zend_a
 	}
 
 	if (memory_cost > ARGON2_MAX_MEMORY || memory_cost < ARGON2_MIN_MEMORY) {
-		zend_value_error("Memory cost is outside of allowed memory range");
+		php_error_docref(NULL, E_WARNING, "Memory cost is outside of allowed memory range");
 		return NULL;
 	}
 
@@ -321,7 +397,7 @@ static zend_string *php_password_argon2_hash(const zend_string *password, zend_a
 	}
 
 	if (time_cost > ARGON2_MAX_TIME || time_cost < ARGON2_MIN_TIME) {
-		zend_value_error("Time cost is outside of allowed time range");
+		php_error_docref(NULL, E_WARNING, "Time cost is outside of allowed time range");
 		return NULL;
 	}
 
@@ -330,7 +406,7 @@ static zend_string *php_password_argon2_hash(const zend_string *password, zend_a
 	}
 
 	if (threads > ARGON2_MAX_LANES || threads == 0) {
-		zend_value_error("Invalid number of threads");
+		php_error_docref(NULL, E_WARNING, "Invalid number of threads");
 		return NULL;
 	}
 
@@ -370,7 +446,7 @@ static zend_string *php_password_argon2_hash(const zend_string *password, zend_a
 
 	if (status != ARGON2_OK) {
 		zend_string_efree(encoded);
-		zend_value_error("%s", argon2_error_message(status));
+		php_error_docref(NULL, E_WARNING, "%s", argon2_error_message(status));
 		return NULL;
 	}
 
@@ -380,7 +456,7 @@ static zend_string *php_password_argon2_hash(const zend_string *password, zend_a
 
 /* argon2i specific methods */
 
-static bool php_password_argon2i_verify(const zend_string *password, const zend_string *hash) {
+static zend_bool php_password_argon2i_verify(const zend_string *password, const zend_string *hash) {
 	return ARGON2_OK == argon2_verify(ZSTR_VAL(hash), ZSTR_VAL(password), ZSTR_LEN(password), Argon2_i);
 }
 
@@ -399,7 +475,7 @@ const php_password_algo php_password_algo_argon2i = {
 
 /* argon2id specific methods */
 
-static bool php_password_argon2id_verify(const zend_string *password, const zend_string *hash) {
+static zend_bool php_password_argon2id_verify(const zend_string *password, const zend_string *hash) {
 	return ARGON2_OK == argon2_verify(ZSTR_VAL(hash), ZSTR_VAL(password), ZSTR_LEN(password), Argon2_id);
 }
 
@@ -464,7 +540,7 @@ PHP_MSHUTDOWN_FUNCTION(password) /* {{{ */
 }
 /* }}} */
 
-const php_password_algo* php_password_algo_default(void) {
+const php_password_algo* php_password_algo_default() {
 	return &php_password_algo_bcrypt;
 }
 
@@ -483,40 +559,46 @@ const php_password_algo* php_password_algo_find(const zend_string *ident) {
 	return Z_PTR_P(tmp);
 }
 
-static const php_password_algo* php_password_algo_find_zval(zend_string *arg_str, zend_long arg_long, bool arg_is_null) {
-	if (arg_is_null) {
-		return php_password_algo_default();
+static const php_password_algo* php_password_algo_find_zval_ex(zval *arg, const php_password_algo* default_algo) {
+	if (!arg || (Z_TYPE_P(arg) == IS_NULL)) {
+		return default_algo;
 	}
 
-	if (arg_str) {
-		return php_password_algo_find(arg_str);
-	}
-
-	switch (arg_long) {
-		case 0: return php_password_algo_default();
-		case 1: return &php_password_algo_bcrypt;
+	if (Z_TYPE_P(arg) == IS_LONG) {
+		switch (Z_LVAL_P(arg)) {
+			case 0: return default_algo;
+			case 1: return &php_password_algo_bcrypt;
 #if HAVE_ARGON2LIB
-		case 2: return &php_password_algo_argon2i;
-		case 3: return &php_password_algo_argon2id;
+			case 2: return &php_password_algo_argon2i;
+			case 3: return &php_password_algo_argon2id;
 #else
-		case 2:
-			{
-			zend_string *n = zend_string_init("argon2i", sizeof("argon2i")-1, 0);
-			const php_password_algo* ret = php_password_algo_find(n);
-			zend_string_release(n);
-			return ret;
-			}
-		case 3:
-			{
-			zend_string *n = zend_string_init("argon2id", sizeof("argon2id")-1, 0);
-			const php_password_algo* ret = php_password_algo_find(n);
-			zend_string_release(n);
-			return ret;
-			}
+			case 2:
+				{
+				zend_string *n = zend_string_init("argon2i", sizeof("argon2i")-1, 0);
+				const php_password_algo* ret = php_password_algo_find(n);
+				zend_string_release(n);
+				return ret;
+				}
+			case 3:
+				{
+				zend_string *n = zend_string_init("argon2id", sizeof("argon2id")-1, 0);
+				const php_password_algo* ret = php_password_algo_find(n);
+				zend_string_release(n);
+				return ret;
+				}
 #endif
+		}
+		return NULL;
 	}
 
-	return NULL;
+	if (Z_TYPE_P(arg) != IS_STRING) {
+		return NULL;
+	}
+
+	return php_password_algo_find(Z_STR_P(arg));
+}
+static const php_password_algo* php_password_algo_find_zval(zval *arg) {
+	return php_password_algo_find_zval_ex(arg, php_password_algo_default());
 }
 
 zend_string *php_password_algo_extract_ident(const zend_string* hash) {
@@ -550,7 +632,8 @@ const php_password_algo* php_password_algo_identify_ex(const zend_string* hash, 
 	return (!algo || (algo->valid && !algo->valid(hash))) ? default_algo : algo;
 }
 
-/* {{{ Retrieves information about a given hash */
+/* {{{ proto array password_get_info(string $hash)
+Retrieves information about a given hash */
 PHP_FUNCTION(password_get_info)
 {
 	const php_password_algo *algo;
@@ -580,31 +663,33 @@ PHP_FUNCTION(password_get_info)
 	zend_string_release(ident);
 
 	add_assoc_string(return_value, "algoName", algo->name);
-	if (algo->get_info) {
-		algo->get_info(&options, hash);
+	if (algo->get_info &&
+		(FAILURE == algo->get_info(&options, hash))) {
+		zval_dtor(&options);
+		zval_dtor(return_value);
+		RETURN_NULL();
 	}
 	add_assoc_zval(return_value, "options", &options);
 }
 /** }}} */
 
-/* {{{ Determines if a given hash requires re-hashing based upon parameters */
+/* {{{ proto bool password_needs_rehash(string $hash, mixed $algo[, array $options])
+Determines if a given hash requires re-hashing based upon parameters */
 PHP_FUNCTION(password_needs_rehash)
 {
 	const php_password_algo *old_algo, *new_algo;
 	zend_string *hash;
-	zend_string *new_algo_str;
-	zend_long new_algo_long;
-	bool new_algo_is_null;
+	zval *znew_algo;
 	zend_array *options = 0;
 
 	ZEND_PARSE_PARAMETERS_START(2, 3)
 		Z_PARAM_STR(hash)
-		Z_PARAM_STR_OR_LONG_OR_NULL(new_algo_str, new_algo_long, new_algo_is_null)
+		Z_PARAM_ZVAL(znew_algo)
 		Z_PARAM_OPTIONAL
-		Z_PARAM_ARRAY_HT(options)
+		Z_PARAM_ARRAY_OR_OBJECT_HT(options)
 	ZEND_PARSE_PARAMETERS_END();
 
-	new_algo = php_password_algo_find_zval(new_algo_str, new_algo_long, new_algo_is_null);
+	new_algo = php_password_algo_find_zval(znew_algo);
 	if (!new_algo) {
 		/* Unknown new algorithm, never prompt to rehash. */
 		RETURN_FALSE;
@@ -620,7 +705,8 @@ PHP_FUNCTION(password_needs_rehash)
 }
 /* }}} */
 
-/* {{{ Verify a hash created using crypt() or password_hash() */
+/* {{{ proto bool password_verify(string password, string hash)
+Verify a hash created using crypt() or password_hash() */
 PHP_FUNCTION(password_verify)
 {
 	zend_string *password, *hash;
@@ -629,49 +715,48 @@ PHP_FUNCTION(password_verify)
 	ZEND_PARSE_PARAMETERS_START(2, 2)
 		Z_PARAM_STR(password)
 		Z_PARAM_STR(hash)
-	ZEND_PARSE_PARAMETERS_END();
+	ZEND_PARSE_PARAMETERS_END_EX(RETURN_FALSE);
 
 	algo = php_password_algo_identify(hash);
 	RETURN_BOOL(algo && (!algo->verify || algo->verify(password, hash)));
 }
 /* }}} */
 
-/* {{{ Hash a password */
+/* {{{ proto string password_hash(string password, mixed algo[, array options = array()])
+Hash a password */
 PHP_FUNCTION(password_hash)
 {
 	zend_string *password, *digest = NULL;
-	zend_string *algo_str;
-	zend_long algo_long;
-	bool algo_is_null;
+	zval *zalgo;
 	const php_password_algo *algo;
 	zend_array *options = NULL;
 
 	ZEND_PARSE_PARAMETERS_START(2, 3)
 		Z_PARAM_STR(password)
-		Z_PARAM_STR_OR_LONG_OR_NULL(algo_str, algo_long, algo_is_null)
+		Z_PARAM_ZVAL(zalgo)
 		Z_PARAM_OPTIONAL
-		Z_PARAM_ARRAY_HT(options)
+		Z_PARAM_ARRAY_OR_OBJECT_HT(options)
 	ZEND_PARSE_PARAMETERS_END();
 
-	algo = php_password_algo_find_zval(algo_str, algo_long, algo_is_null);
+	algo = php_password_algo_find_zval(zalgo);
 	if (!algo) {
-		zend_argument_value_error(2, "must be a valid password hashing algorithm");
-		RETURN_THROWS();
+		zend_string *algostr = zval_get_string(zalgo);
+		php_error_docref(NULL, E_WARNING, "Unknown password hashing algorithm: %s", ZSTR_VAL(algostr));
+		zend_string_release(algostr);
+		RETURN_NULL();
 	}
 
 	digest = algo->hash(password, options);
 	if (!digest) {
-		if (!EG(exception)) {
-			zend_throw_error(NULL, "Password hashing failed for unknown reason");
-		}
-		RETURN_THROWS();
+		/* algo->hash should have raised an error. */
+		RETURN_NULL();
 	}
 
 	RETURN_NEW_STR(digest);
 }
 /* }}} */
 
-/* {{{ */
+/* {{{ proto array password_algos() */
 PHP_FUNCTION(password_algos) {
 	zend_string *algo;
 

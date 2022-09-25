@@ -1,7 +1,5 @@
 --TEST--
 Bug #32330 (session_destroy, "Failed to initialize storage module", custom session handler)
---EXTENSIONS--
-session
 --SKIPIF--
 <?php include('skipif.inc'); ?>
 --INI--
@@ -18,38 +16,38 @@ error_reporting(E_ALL);
 
 function sOpen($path, $name)
 {
-    echo "open: path = {$path}, name = {$name}\n";
-    return TRUE;
+	echo "open: path = {$path}, name = {$name}\n";
+	return TRUE;
 }
 
 function sClose()
 {
-    echo "close\n";
-    return TRUE;
+	echo "close\n";
+	return TRUE;
 }
 
 function sRead($id)
 {
-    echo "read: id = {$id}\n";
-    return '';
+	echo "read: id = {$id}\n";
+	return '';
 }
 
 function sWrite($id, $data)
 {
-    echo "write: id = {$id}, data = {$data}\n";
-    return TRUE;
+	echo "write: id = {$id}, data = {$data}\n";
+	return TRUE;
 }
 
 function sDestroy($id)
 {
-    echo "destroy: id = {$id}\n";
-    return TRUE;
+	echo "destroy: id = {$id}\n";
+	return TRUE;
 }
 
 function sGC($maxlifetime)
 {
-    echo "gc: maxlifetime = {$maxlifetime}\n";
-    return TRUE;
+	echo "gc: maxlifetime = {$maxlifetime}\n";
+	return TRUE;
 }
 
 session_set_save_handler( 'sOpen', 'sClose', 'sRead', 'sWrite', 'sDestroy', 'sGC' );

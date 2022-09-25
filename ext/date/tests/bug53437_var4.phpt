@@ -9,17 +9,18 @@ $dt = new DateTime('2009-10-11');
 $df = $dt->diff(new DateTime('2009-10-13'));
 
 var_dump($df,
-    $df->y,
-    $df->m,
-    $df->d,
-    $df->h,
-    $df->i,
-    $df->s,
-    $df->f,
-    $df->invert,
-    $df->days);
+	$df->y,
+	$df->m,
+	$df->d,
+	$df->h,
+	$df->i,
+	$df->s,
+	$df->f,
+	$df->invert,
+	$df->days);
 
 ?>
+==DONE==
 --EXPECTF--
 object(DateInterval)#%d (16) {
   ["y"]=>
@@ -64,3 +65,4 @@ int(0)
 float(0)
 int(0)
 int(2)
+==DONE==

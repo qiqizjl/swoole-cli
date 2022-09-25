@@ -1,9 +1,9 @@
 --TEST--
 Fetching BIT column values using the PS API
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+    require_once('skipif.inc');
+    require_once('skipifemb.inc');
     require_once('skipifconnectfailure.inc');
 
     if (!function_exists('mysqli_stmt_get_result'))
@@ -13,6 +13,9 @@ mysqli
     require_once('table.inc');
     if (mysqli_get_server_version($link) < 50003)
         // b'001' syntax not supported before 5.0.3
+        die("skip Syntax used for test not supported with MySQL Server before 5.0.3");
+    if (!$IS_MYSQLND && (mysqli_get_client_version() < 50003))
+        // better don't trust libmysql before 5.0.3
         die("skip Syntax used for test not supported with MySQL Server before 5.0.3");
 ?>
 --FILE--

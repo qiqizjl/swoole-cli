@@ -8,6 +8,5 @@ $x->getPathName();
 $x->seek(10);
 $x->seek(0);
 var_dump(trim($x->fgets()));
-?>
 --EXPECTF--
 string(%d) "<?php"

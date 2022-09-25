@@ -3,10 +3,10 @@ mysqli_get_connection_stats()
 --INI--
 mysqlnd.collect_statistics="1"
 mysqlnd.collect_memory_statistics="1"
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?PHP
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 if (!function_exists('mysqli_get_connection_stats')) {
     die("skip only available with mysqlnd");
@@ -14,6 +14,13 @@ if (!function_exists('mysqli_get_connection_stats')) {
 ?>
 --FILE--
 <?php
+    $tmp = $link = null;
+    if (!is_null($tmp = @mysqli_get_connection_stats()))
+        printf("[001] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
+    if (!is_null($tmp = @mysqli_get_connection_stats($link)))
+        printf("[002] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
     require("table.inc");
 
     if (!is_array($info = mysqli_get_connection_stats($link)) || empty($info))

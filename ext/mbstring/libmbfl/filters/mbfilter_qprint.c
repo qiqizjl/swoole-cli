@@ -27,6 +27,10 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "mbfilter.h"
 #include "mbfilter_qprint.h"
 #include "unicode_prop.h"
@@ -37,9 +41,9 @@ const mbfl_encoding mbfl_encoding_qprint = {
 	mbfl_no_encoding_qprint,
 	"Quoted-Printable",
 	"Quoted-Printable",
-	mbfl_encoding_qprint_aliases,
+	(const char *(*)[])&mbfl_encoding_qprint_aliases,
 	NULL,
-	MBFL_ENCTYPE_GL_UNSAFE,
+	MBFL_ENCTYPE_ENC_STRM | MBFL_ENCTYPE_GL_UNSAFE,
 	NULL,
 	NULL
 };
@@ -48,21 +52,17 @@ const struct mbfl_convert_vtbl vtbl_8bit_qprint = {
 	mbfl_no_encoding_8bit,
 	mbfl_no_encoding_qprint,
 	mbfl_filt_conv_common_ctor,
-	NULL,
+	mbfl_filt_conv_common_dtor,
 	mbfl_filt_conv_qprintenc,
-	mbfl_filt_conv_qprintenc_flush,
-	NULL,
-};
+	mbfl_filt_conv_qprintenc_flush };
 
 const struct mbfl_convert_vtbl vtbl_qprint_8bit = {
 	mbfl_no_encoding_qprint,
 	mbfl_no_encoding_8bit,
 	mbfl_filt_conv_common_ctor,
-	NULL,
+	mbfl_filt_conv_common_dtor,
 	mbfl_filt_conv_qprintdec,
-	mbfl_filt_conv_qprintdec_flush,
-	NULL,
-};
+	mbfl_filt_conv_qprintdec_flush };
 
 
 #define CK(statement)	do { if ((statement) < 0) return (-1); } while (0)
@@ -110,7 +110,8 @@ int mbfl_filt_conv_qprintenc(int c, mbfl_convert_filter *filter)
 		}
 
 		if (s <= 0 || s >= 0x80 || s == 0x3d		/* not ASCII or '=' */
-		   || ((filter->status & MBFL_QPRINT_STS_MIME_HEADER) && mime_char_needs_qencode[s])) {
+		   || ((filter->status & MBFL_QPRINT_STS_MIME_HEADER) != 0 &&
+		       (mbfl_charprop_table[s] & MBFL_CHP_MMHQENC) != 0)) {
 			/* hex-octet */
 			CK((*filter->output_function)(0x3d, filter->data));		/* '=' */
 			n = (s >> 4) & 0xf;
@@ -139,7 +140,7 @@ int mbfl_filt_conv_qprintenc(int c, mbfl_convert_filter *filter)
 		break;
 	}
 
-	return 0;
+	return c;
 }
 
 int mbfl_filt_conv_qprintenc_flush(mbfl_convert_filter *filter)
@@ -219,7 +220,7 @@ int mbfl_filt_conv_qprintdec(int c, mbfl_convert_filter *filter)
 		break;
 	}
 
-	return 0;
+	return c;
 }
 
 int mbfl_filt_conv_qprintdec_flush(mbfl_convert_filter *filter)

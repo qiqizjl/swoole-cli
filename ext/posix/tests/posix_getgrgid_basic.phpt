@@ -1,10 +1,12 @@
 --TEST--
 Test posix_getgrgid() function : basic functionality
---EXTENSIONS--
-posix
+--SKIPIF--
+<?php
+	if (!extension_loaded('posix')) die('skip - POSIX extension not loaded');
+?>
 --FILE--
 <?php
-  echo "Basic test of POSIX getgid and getgrid functions\n";
+  echo "Basic test of POSIX getgid and getgrid fucntions\n";
 
   $gid = posix_getgid();
   $groupinfo = posix_getgrgid($gid);
@@ -12,8 +14,9 @@ posix
   print_r($groupinfo);
 
 ?>
+===DONE===
 --EXPECTF--
-Basic test of POSIX getgid and getgrid functions
+Basic test of POSIX getgid and getgrid fucntions
 Array
 (
     [name] => %s
@@ -23,3 +26,4 @@ Array
 
     [gid] => %d
 )
+===DONE===

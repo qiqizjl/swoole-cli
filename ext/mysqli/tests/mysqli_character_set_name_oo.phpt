@@ -1,10 +1,10 @@
 --TEST--
-mysqli_character_set_name(), mysql_client_encoding() [alias]
---EXTENSIONS--
-mysqli
+mysqli_chararcter_set_name(), mysql_client_encoding() [alias]
 --SKIPIF--
 <?php
-require_once('skipifconnectfailure.inc');
+    require_once('skipif.inc');
+    require_once('skipifemb.inc');
+    require_once('skipifconnectfailure.inc');
 ?>
 --FILE--
 <?php
@@ -17,6 +17,9 @@ require_once('skipifconnectfailure.inc');
     if (!$mysqli = new my_mysqli($host, $user, $passwd, $db, $port, $socket))
         printf("[001] Cannot connect to the server using host=%s, user=%s, passwd=***, dbname=%s, port=%s, socket=%s\n",
             $host, $user, $db, $port, $socket);
+
+    if (!is_null($tmp = @$mysqli->character_set_name($link)))
+        printf("[002] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
 
     if (!$res = $mysqli->query('SELECT version() AS server_version'))
         printf("[003] [%d] %s\n", $mysqli->errno, $mysqli->error);
@@ -54,21 +57,14 @@ require_once('skipifconnectfailure.inc');
 
     $mysqli->close();
 
-    try {
-        $mysqli->character_set_name();
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    if (false !== ($tmp = @$mysqli->character_set_name()))
+        printf("[013] Expecting false, got %s/%s\n", gettype($tmp), $tmp);
 
-    try {
-        $mysqli->character_set_name();
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    /* Make sure that the function alias exists */
+    if (false !== ($tmp = @$mysqli->character_set_name()))
+        printf("[014] Expecting false, got %s/%s\n", gettype($tmp), $tmp);
 
     print "done!";
 ?>
 --EXPECT--
-my_mysqli object is already closed
-my_mysqli object is already closed
 done!

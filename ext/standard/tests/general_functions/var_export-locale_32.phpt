@@ -14,8 +14,13 @@ if (PHP_INT_SIZE > 4) {
 --FILE--
 <?php
 setlocale(LC_ALL, "german", "de","de_DE","de_DE.ISO8859-1","de_DE.ISO_8859-1","de_DE.UTF-8");
+/* Prototype: mixed var_export( mixed expression [, bool return]);
+ * Description: Returns the variable representation when the return parameter is used and evaluates to TRUE. Otherwise, this function will return NULL.
+
+*/
+
 echo "*** Testing var_export() with integer values ***\n";
-// different integer values
+// different integer vlaues
 $valid_ints = array(
                 '0',
                 '1',
@@ -51,14 +56,14 @@ $counter++;
 }
 
 echo "*** Testing var_export() with valid boolean values ***\n";
-// different valid  boolean values
+// different valid  boolean vlaues
 $valid_bool = array(
-            1,
-            TRUE,
+		    1,
+		    TRUE,
                 true,
                 0,
-            FALSE,
-            false
+		    FALSE,
+		    false
                );
 $counter = 1;
 /* Loop to check for above boolean values with var_export() */
@@ -75,7 +80,7 @@ $counter++;
 }
 
 echo "*** Testing var_export() with valid float values ***\n";
-// different valid  float values
+// different valid  float vlaues
 $valid_floats = array(
   (float)-2147483649, // float value
   (float)2147483648,  // float value
@@ -274,7 +279,7 @@ $counter++;
 }
 
 echo "*** Testing var_export() with valid null values ***\n";
-// different valid  null values
+// different valid  null vlaues
 $unset_var = array();
 unset ($unset_var); // now a null
 $null_var = NULL;
@@ -298,11 +303,18 @@ echo "\n";
 $counter++;
 }
 
-echo "\nDone";
+echo "\n*** Testing error conditions ***\n";
+//Zero argument
+var_export( var_export() );
+
+//arguments more than expected
+var_export( var_export(TRUE, FALSE, TRUE) );
+
+echo "\n\nDone";
 
 
 ?>
---EXPECT--
+--EXPECTF--
 *** Testing var_export() with integer values ***
 
 *** Output for integer values ***
@@ -1125,5 +1137,12 @@ NULL
 NULL
 string(4) "NULL"
 
+
+*** Testing error conditions ***
+
+Warning: var_export() expects at least 1 parameter, 0 given in %s on line %d
+NULL
+Warning: var_export() expects at most 2 parameters, 3 given in %s on line %d
+NULL
 
 Done

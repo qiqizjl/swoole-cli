@@ -27,6 +27,10 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <string.h>
 #include "mbfilter.h"
 #include "mbfilter_htmlent.h"
@@ -57,9 +61,9 @@ const mbfl_encoding mbfl_encoding_html_ent = {
 	mbfl_no_encoding_html_ent,
 	"HTML-ENTITIES",
 	"HTML-ENTITIES",
-	mbfl_encoding_html_ent_aliases,
+	(const char *(*)[])&mbfl_encoding_html_ent_aliases,
 	NULL,
-	MBFL_ENCTYPE_GL_UNSAFE,
+	MBFL_ENCTYPE_ENC_STRM | MBFL_ENCTYPE_GL_UNSAFE,
 	&vtbl_html_wchar,
 	&vtbl_wchar_html
 };
@@ -68,10 +72,9 @@ const struct mbfl_convert_vtbl vtbl_wchar_html = {
 	mbfl_no_encoding_wchar,
 	mbfl_no_encoding_html_ent,
 	mbfl_filt_conv_common_ctor,
-	NULL,
+	mbfl_filt_conv_common_dtor,
 	mbfl_filt_conv_html_enc,
-	mbfl_filt_conv_html_enc_flush,
-	NULL,
+	mbfl_filt_conv_html_enc_flush
 };
 
 const struct mbfl_convert_vtbl vtbl_html_wchar = {
@@ -81,8 +84,7 @@ const struct mbfl_convert_vtbl vtbl_html_wchar = {
 	mbfl_filt_conv_html_dec_dtor,
 	mbfl_filt_conv_html_dec,
 	mbfl_filt_conv_html_dec_flush,
-	mbfl_filt_conv_html_dec_copy,
-};
+	mbfl_filt_conv_html_dec_copy };
 
 
 #define CK(statement)	do { if ((statement) < 0) return (-1); } while (0)
@@ -133,7 +135,7 @@ int mbfl_filt_conv_html_enc(int c, mbfl_convert_filter *filter)
 	last:
 		CK((*filter->output_function)(';', filter->data));
 	}
-	return 0;
+	return c;
 }
 
 int mbfl_filt_conv_html_enc_flush(mbfl_convert_filter *filter)
@@ -157,7 +159,7 @@ static const char html_entity_chars[] = "#0123456789abcdefghijklmnopqrstuvwxyzAB
 void mbfl_filt_conv_html_dec_ctor(mbfl_convert_filter *filter)
 {
 	filter->status = 0;
-	filter->opaque = emalloc(html_enc_buffer_size+1);
+	filter->opaque = mbfl_malloc(html_enc_buffer_size+1);
 }
 
 void mbfl_filt_conv_html_dec_dtor(mbfl_convert_filter *filter)
@@ -165,7 +167,7 @@ void mbfl_filt_conv_html_dec_dtor(mbfl_convert_filter *filter)
 	filter->status = 0;
 	if (filter->opaque)
 	{
-		efree((void*)filter->opaque);
+		mbfl_free((void*)filter->opaque);
 	}
 	filter->opaque = NULL;
 }
@@ -276,7 +278,7 @@ int mbfl_filt_conv_html_dec(int c, mbfl_convert_filter *filter)
 			}
 		}
 	}
-	return 0;
+	return c;
 }
 
 int mbfl_filt_conv_html_dec_flush(mbfl_convert_filter *filter)
@@ -306,6 +308,6 @@ int mbfl_filt_conv_html_dec_flush(mbfl_convert_filter *filter)
 void mbfl_filt_conv_html_dec_copy(mbfl_convert_filter *src, mbfl_convert_filter *dest)
 {
 	*dest = *src;
-	dest->opaque = emalloc(html_enc_buffer_size+1);
+	dest->opaque = mbfl_malloc(html_enc_buffer_size+1);
 	memcpy(dest->opaque, src->opaque, html_enc_buffer_size+1);
 }

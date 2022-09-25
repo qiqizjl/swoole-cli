@@ -17,6 +17,7 @@ var_dump(`$php -n $argv_fl 多字节字符串 マルチバイト文字列 мно
 @unlink($argv_fl);
 
 ?>
+==DONE==
 --EXPECTF--
 string(%d) "array(%d) {
   [0]=>
@@ -31,3 +32,4 @@ string(%d) "array(%d) {
   string(15) "flerbytesträng"
 }
 "
+==DONE==

@@ -3,8 +3,8 @@ SQLite3::enableExceptions test
 --CREDITS--
 Thijs Feryn <thijs@feryn.eu>
 #TestFest PHPBelgium 2009
---EXTENSIONS--
-sqlite3
+--SKIPIF--
+<?php require_once(__DIR__ . '/skipif.inc'); ?>
 --FILE--
 <?php
 
@@ -17,6 +17,7 @@ try{
 }
 var_dump($db->enableExceptions(false));
 $db->query("SELECT * FROM non_existent_table");
+var_dump($db->enableExceptions("wrong_type","wrong_type"));
 echo "Closing database\n";
 var_dump($db->close());
 echo "Done\n";
@@ -27,6 +28,9 @@ no such table: non_existent_table
 bool(true)
 
 Warning: SQLite3::query(): no such table: non_existent_table in %s on line %d
+
+Warning: SQLite3::enableExceptions() expects at most 1 parameter, 2 given in %s on line %d
+NULL
 Closing database
 bool(true)
 Done

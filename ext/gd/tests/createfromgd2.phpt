@@ -1,7 +1,5 @@
 --TEST--
 imagecreatefromgd2
---EXTENSIONS--
-gd
 --SKIPIF--
 <?php
         if (!function_exists('imagecreatefromgd2')) die("skip gd extension not available\n");

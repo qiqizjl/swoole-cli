@@ -1,14 +1,23 @@
 --TEST--
 mysqli_thread_id()
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 ?>
 --FILE--
 <?php
     require_once("connect.inc");
+
+    $tmp    = NULL;
+    $link   = NULL;
+
+    if (!is_null($tmp = @mysqli_thread_id()))
+        printf("[001] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
+    if (!is_null($tmp = @mysqli_thread_id($link)))
+        printf("[002] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
 
     require('table.inc');
 
@@ -21,11 +30,8 @@ require_once('skipifconnectfailure.inc');
 
     mysqli_close($link);
 
-    try {
-        mysqli_thread_id($link);
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    if (false !== ($tmp = mysqli_thread_id($link)))
+        printf("[005] Expecting false, got %s/%s\n", gettype($tmp), $tmp);
 
     print "done!";
 ?>
@@ -33,6 +39,6 @@ require_once('skipifconnectfailure.inc');
 <?php
     require_once("clean_table.inc");
 ?>
---EXPECT--
-mysqli object is already closed
+--EXPECTF--
+Warning: mysqli_thread_id(): Couldn't fetch mysqli in %s on line %d
 done!

@@ -1,14 +1,23 @@
 --TEST--
 mysqli_use_result()
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 ?>
 --FILE--
 <?php
     require_once("connect.inc");
+
+    $tmp    = NULL;
+    $link   = NULL;
+
+    if (!is_null($tmp = @mysqli_use_result()))
+        printf("[001] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
+    if (!is_null($tmp = @mysqli_use_result($link)))
+        printf("[002] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
 
     require('table.inc');
 
@@ -19,11 +28,9 @@ require_once('skipifconnectfailure.inc');
         printf("[004] Expecting object, got %s/%s. [%d] %s\n",
             gettype($res), $res, mysqli_errno($link), mysqli_error($link));
 
-    try {
-        var_dump(mysqli_data_seek($res, 2));
-    } catch (\Error $e) {
-        echo $e->getMessage() . \PHP_EOL;
-    }
+    if (false !== ($tmp = mysqli_data_seek($res, 2)))
+        printf("[005] Expecting boolean/true, got %s/%s. [%d] %s\n",
+            gettype($tmp), $tmp, mysqli_errno($link), mysqli_error($link));
 
     mysqli_free_result($res);
 
@@ -43,11 +50,8 @@ require_once('skipifconnectfailure.inc');
 
     mysqli_close($link);
 
-    try {
-        mysqli_use_result($link);
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    if (false !== ($tmp = mysqli_use_result($link)))
+        printf("[010] Expecting false, got %s/%s\n", gettype($tmp), $tmp);
 
     print "done!";
 ?>
@@ -55,7 +59,8 @@ require_once('skipifconnectfailure.inc');
 <?php
     require_once("clean_table.inc");
 ?>
---EXPECT--
-mysqli_data_seek() cannot be used in MYSQLI_USE_RESULT mode
-mysqli object is already closed
+--EXPECTF--
+Warning: mysqli_data_seek(): Function cannot be used with MYSQL_USE_RESULT in %s on line %d
+
+Warning: mysqli_use_result(): Couldn't fetch mysqli in %s on line %d
 done!
