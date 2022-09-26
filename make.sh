@@ -42,14 +42,17 @@ OPTIONS="--disable-all \
 --enable-exif \
 --with-sodium \
 --enable-json \
---with-openssl=/Users/sean/Documents/php-work/swoole-cli-4.x/opt/usr/openssl --with-openssl-dir=/Users/sean/Documents/php-work/swoole-cli-4.x/opt/usr/openssl \
+--with-openssl=/Users/sean/Documents/php-work/swoole-cli-4.x/opt/usr/openssl --with-openssl-dir=/Users/sean/Documents/php-work/swoole-cli-4.x/opt/usr/openssl --enable-openssl \
 --enable-xml --enable-simplexml --enable-xmlreader --enable-xmlwriter --enable-dom --with-libxml \
 --enable-gd --with-jpeg=/Users/sean/Documents/php-work/swoole-cli-4.x/opt/usr --with-freetype=/Users/sean/Documents/php-work/swoole-cli-4.x/opt/usr \
 --enable-redis --enable-redis-json \
 --enable-swoole --enable-http2 --enable-sockets --enable-mysqlnd --enable-swoole-json --enable-swoole-curl --enable-cares \
 --with-yaml=/Users/sean/Documents/php-work/swoole-cli-4.x/opt/usr/libyaml \
---with-imagick=/Users/sean/Documents/php-work/swoole-cli-4.x/opt/usr/imagemagick \
+--enable-grpc \
 "
+#--enable-grpc= \
+#--with-imagick=/Users/sean/Documents/php-work/swoole-cli-4.x/opt/usr/imagemagick \
+
 
 make_openssl() {
     cd /Users/sean/Documents/php-work/swoole-cli-4.x/swoole-cli/thirdparty

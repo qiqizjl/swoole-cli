@@ -473,7 +473,17 @@ $extAvailabled = [
         $p->addExtension((new Extension('mongodb'))
             ->withOptions('--enable-mongodb')
             ->withPeclVersion('1.14.1'));
-    }
+    },
+    "grpc"=>function($p){
+        $p->addExtension((new Extension('grpc'))
+            ->withOptions('--enable-grpc=./thirdparty/grpc')
+            ->withPeclVersion('1.44.0'));
+    },
+    "protobuf"=>function($p){
+        $p->addExtension((new Extension('protobuf'))
+            ->withOptions('--enable-protobuf')
+            ->withPeclVersion('3.19.1'));
+    },
 ];
 
 $extEnabled = [
@@ -485,7 +495,9 @@ $extEnabled = [
     'yaml',
     'imagick',
     //'inotify',
-    //'mongodb'
+    //'mongodb',
+    "grpc",
+    "protobuf",
 ];
 
 for ($i = 1; $i < $argc; $i++) {
