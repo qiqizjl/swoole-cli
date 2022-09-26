@@ -1,9 +1,9 @@
 --TEST--
 mysqli_stmt_result_metadata() - non SELECT statements
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 
 die("skip Check again when the Klingons visit earth - http://bugs.mysql.com/bug.php?id=42490");
@@ -75,7 +75,7 @@ die("skip Check again when the Klingons visit earth - http://bugs.mysql.com/bug.
             mysqli_free_result($res);
 
             if ($meta != $expected_lib) {
-                printf("[%04d - %s] Metadata differs from expected values\n",
+                printf("[%04d - %s] Metadata differes from expected values\n",
                     $offset + 5, $sql);
                 var_dump($meta);
                 var_dump($expected_lib);

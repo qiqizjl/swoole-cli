@@ -13,7 +13,7 @@ if (empty($argv[1])) {
 }
 
 $p = new Preprocessor(__DIR__);
-$p->setPhpSrcDir('/home/htf/soft/php-8.1.8');
+$p->setPhpSrcDir('/Users/sean/Documents/php-work/swoole-cli-4.x/php-src');
 $p->setDockerVersion('1.4');
 $p->setSwooleDir('/home/htf/workspace/swoole');
 
@@ -21,7 +21,7 @@ $endCallback = function () {
 };
 
 if ($type == 'macos') {
-    define('WORKSPACE', '/Users/sean/Documents/php-work/swoole-cli');
+    define('WORKSPACE', '/Users/sean/Documents/php-work/swoole-cli-4.x');
     // $p->setWorkDir(WORKSPACE . '/cli-swoole');
     // $p->setExtraLdflags('-L/usr/lib -undefined dynamic_lookup -lwebp -licudata -licui18n -licuio');
     $p->setWorkDir(WORKSPACE.'/swoole-cli');
@@ -411,6 +411,7 @@ $p->addExtension((new Extension('xsl'))->withOptions('--with-xsl'));
 $p->addExtension((new Extension('gmp'))->withOptions('--with-gmp=/usr/gmp'));
 $p->addExtension((new Extension('exif'))->withOptions('--enable-exif'));
 $p->addExtension((new Extension('sodium'))->withOptions('--with-sodium'));
+$p->addExtension((new Extension('json'))->withOptions('--enable-json'));
 //$p->addExtension((new Extension('readline'))->withOptions('--with-libedit'));
 //$p->addExtension((new Extension('opcache'))->withOptions('--enable-opcache'));
 
@@ -433,7 +434,8 @@ $extAvailabled = [
     },
     'swoole' => function ($p) {
         $p->addExtension((new Extension('swoole'))
-            ->withOptions('--enable-swoole --enable-sockets --enable-mysqlnd --enable-swoole-curl --enable-cares')
+            ->withPeclVersion('4.8.12')
+            ->withOptions('--enable-swoole --enable-http2 --enable-sockets --enable-mysqlnd --enable-swoole-json --enable-swoole-curl --enable-cares')
             ->withLicense('https://github.com/swoole/swoole-src/blob/master/LICENSE', Extension::LICENSE_APACHE2)
             ->withHomePage('https://github.com/swoole/swoole-src')
         );
@@ -456,7 +458,7 @@ $extAvailabled = [
     },
     'redis' => function ($p) {
         $p->addExtension((new Extension('redis'))
-            ->withOptions('--enable-redis')
+            ->withOptions('--enable-redis --enable-redis-json')
             ->withPeclVersion('5.3.7')
             ->withHomePage('https://github.com/phpredis/phpredis')
             ->withLicense('https://github.com/phpredis/phpredis/blob/develop/COPYING', Extension::LICENSE_PHP)

@@ -1,9 +1,9 @@
 --TEST--
 mysqli_float_handling - ensure 4 byte float is handled correctly
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+    require_once('skipif.inc');
+    require_once('skipifemb.inc');
     require_once('skipifconnectfailure.inc');
 ?>
 --INI--
@@ -62,7 +62,7 @@ precision=5
 ?>
 --CLEAN--
 <?php
-	require_once("clean_table.inc");
+    require_once("clean_table.inc");
 ?>
 --EXPECT--
 1: 9.9999: 9.9999

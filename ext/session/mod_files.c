@@ -1,11 +1,13 @@
 /*
    +----------------------------------------------------------------------+
+   | PHP Version 7                                                        |
+   +----------------------------------------------------------------------+
    | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
-   | https://www.php.net/license/3_01.txt                                 |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -55,11 +57,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#ifdef HAVE_SYS_FILE_H
+#if HAVE_SYS_FILE_H
 #include <sys/file.h>
 #endif
 
-#ifdef HAVE_DIRENT_H
+#if HAVE_DIRENT_H
 #include <dirent.h>
 #endif
 
@@ -71,7 +73,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#ifdef HAVE_UNISTD_H
+#if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
@@ -168,12 +170,12 @@ static void ps_files_open(ps_files *data, const char *key)
 		ps_files_close(data);
 
 		if (php_session_valid_key(key) == FAILURE) {
-			php_error_docref(NULL, E_WARNING, "Session ID is too long or contains illegal characters. Only the A-Z, a-z, 0-9, \"-\", and \",\" characters are allowed");
+			php_error_docref(NULL, E_WARNING, "The session id is too long or contains illegal characters, valid characters are a-z, A-Z, 0-9 and '-,'");
 			return;
 		}
 
 		if (!ps_files_path_create(buf, sizeof(buf), data, key)) {
-			php_error_docref(NULL, E_WARNING, "Failed to create session data file path. Too short session ID, invalid save_path or path length exceeds %d characters", MAXPATHLEN);
+			php_error_docref(NULL, E_WARNING, "Failed to create session data file path. Too short session ID, invalid save_path or path lentgth exceeds MAXPATHLEN(%d)", MAXPATHLEN);
 			return;
 		}
 
@@ -243,7 +245,7 @@ static int ps_files_write(ps_files *data, zend_string *key, zend_string *val)
 		php_ignore_value(ftruncate(data->fd, 0));
 	}
 
-#ifdef HAVE_PWRITE
+#if defined(HAVE_PWRITE)
 	n = pwrite(data->fd, ZSTR_VAL(val), ZSTR_LEN(val), 0);
 #else
 	lseek(data->fd, 0, SEEK_SET);
@@ -269,9 +271,9 @@ static int ps_files_write(ps_files *data, zend_string *key, zend_string *val)
 
 	if (n != ZSTR_LEN(val)) {
 		if (n == (size_t)-1) {
-			php_error_docref(NULL, E_WARNING, "Write failed: %s (%d)", strerror(errno), errno);
+			php_error_docref(NULL, E_WARNING, "write failed: %s (%d)", strerror(errno), errno);
 		} else {
-			php_error_docref(NULL, E_WARNING, "Write wrote less bytes than requested");
+			php_error_docref(NULL, E_WARNING, "write wrote less bytes than requested");
 		}
 		return FAILURE;
 	}
@@ -494,7 +496,7 @@ PS_READ_FUNC(files)
 
 	*val = zend_string_alloc(sbuf.st_size, 0);
 
-#ifdef HAVE_PREAD
+#if defined(HAVE_PREAD)
 	n = pread(data->fd, ZSTR_VAL(*val), ZSTR_LEN(*val), 0);
 #else
 	lseek(data->fd, 0, SEEK_SET);
@@ -521,9 +523,9 @@ PS_READ_FUNC(files)
 
 	if (n != (zend_long)sbuf.st_size) {
 		if (n == -1) {
-			php_error_docref(NULL, E_WARNING, "Read failed: %s (%d)", strerror(errno), errno);
+			php_error_docref(NULL, E_WARNING, "read failed: %s (%d)", strerror(errno), errno);
 		} else {
-			php_error_docref(NULL, E_WARNING, "Read returned less bytes than requested");
+			php_error_docref(NULL, E_WARNING, "read returned less bytes than requested");
 		}
 		zend_string_release_ex(*val, 0);
 		*val =  ZSTR_EMPTY_ALLOC();

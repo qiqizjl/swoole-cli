@@ -1,11 +1,13 @@
 /*
    +----------------------------------------------------------------------+
+   | PHP Version 7                                                        |
+   +----------------------------------------------------------------------+
    | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
-   | https://www.php.net/license/3_01.txt                                 |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -25,24 +27,33 @@
 #include "php_content_types.h"
 #include "SAPI.h"
 #include "zend_globals.h"
+#ifdef PHP_WIN32
+# include "win32/php_inttypes.h"
+#endif
 
 /* for systems that need to override reading of environment variables */
 void _php_import_environment_variables(zval *array_ptr);
 PHPAPI void (*php_import_environment_variables)(zval *array_ptr) = _php_import_environment_variables;
 
-PHPAPI void php_register_variable(const char *var, const char *strval, zval *track_vars_array)
+PHPAPI void php_register_variable(char *var, char *strval, zval *track_vars_array)
 {
 	php_register_variable_safe(var, strval, strlen(strval), track_vars_array);
 }
 
 /* binary-safe version */
-PHPAPI void php_register_variable_safe(const char *var, const char *strval, size_t str_len, zval *track_vars_array)
+PHPAPI void php_register_variable_safe(char *var, char *strval, size_t str_len, zval *track_vars_array)
 {
 	zval new_entry;
 	assert(strval != NULL);
 
-	ZVAL_STRINGL_FAST(&new_entry, strval, str_len);
-
+	/* Prepare value */
+	if (str_len == 0) {
+		ZVAL_EMPTY_STRING(&new_entry);
+	} else if (str_len == 1) {
+		ZVAL_INTERNED_STR(&new_entry, ZSTR_CHAR((zend_uchar)*strval));
+	} else {
+		ZVAL_NEW_STR(&new_entry, zend_string_init(strval, str_len, 0));
+	}
 	php_register_variable_ex(var, &new_entry, track_vars_array);
 }
 
@@ -54,7 +65,7 @@ static zend_always_inline void php_register_variable_quick(const char *name, siz
 	zend_string_release_ex(key, 0);
 }
 
-PHPAPI void php_register_variable_ex(const char *var_name, zval *val, zval *track_vars_array)
+PHPAPI void php_register_variable_ex(char *var_name, zval *val, zval *track_vars_array)
 {
 	char *p = NULL;
 	char *ip = NULL;		/* index pointer */
@@ -62,7 +73,7 @@ PHPAPI void php_register_variable_ex(const char *var_name, zval *val, zval *trac
 	char *var, *var_orig;
 	size_t var_len, index_len;
 	zval gpc_element, *gpc_element_p;
-	bool is_array = 0;
+	zend_bool is_array = 0;
 	HashTable *symtable1 = NULL;
 	ALLOCA_FLAG(use_heap)
 
@@ -178,14 +189,8 @@ PHPAPI void php_register_variable_ex(const char *var_name, zval *val, zval *trac
 			} else {
 				ip = strchr(ip, ']');
 				if (!ip) {
-					/* not an index; un-terminate the var name */
+					/* PHP variables cannot contain '[' in their names, so we replace the character with a '_' */
 					*(index_s - 1) = '_';
-					/* PHP variables cannot contain ' ', '.', '[' in their names, so we replace the characters with a '_' */
-					for (p = index_s; *p; p++) {
-						if (*p == ' ' || *p == '.' || *p == '[') {
-							*p = '_';
-						}
-					}
 
 					index_len = 0;
 					if (index) {
@@ -276,7 +281,7 @@ typedef struct post_var_data {
 	size_t already_scanned;
 } post_var_data_t;
 
-static bool add_post_var(zval *arr, post_var_data_t *var, bool eof)
+static zend_bool add_post_var(zval *arr, post_var_data_t *var, zend_bool eof)
 {
 	char *start, *ksep, *vsep, *val;
 	size_t klen, vlen;
@@ -327,7 +332,7 @@ static bool add_post_var(zval *arr, post_var_data_t *var, bool eof)
 	return 1;
 }
 
-static inline int add_post_vars(zval *arr, post_var_data_t *vars, bool eof)
+static inline int add_post_vars(zval *arr, post_var_data_t *vars, zend_bool eof)
 {
 	uint64_t max_vars = PG(max_input_vars);
 
@@ -554,7 +559,13 @@ static zend_always_inline void import_environment_variable(HashTable *ht, char *
 	name_len = p - env;
 	p++;
 	len = strlen(p);
-	ZVAL_STRINGL_FAST(&val, p, len);
+	if (len == 0) {
+		ZVAL_EMPTY_STRING(&val);
+	} else if (len == 1) {
+		ZVAL_INTERNED_STR(&val, ZSTR_CHAR((zend_uchar)*p));
+	} else {
+		ZVAL_NEW_STR(&val, zend_string_init(p, len, 0));
+	}
 	if (ZEND_HANDLE_NUMERIC_STR(env, name_len, idx)) {
 		zend_hash_index_update(ht, idx, &val);
 	} else {
@@ -564,38 +575,42 @@ static zend_always_inline void import_environment_variable(HashTable *ht, char *
 
 void _php_import_environment_variables(zval *array_ptr)
 {
+#ifndef PHP_WIN32
+	char **env;
+#else
+	char *environment, *env;
+#endif
+
 	tsrm_env_lock();
 
 #ifndef PHP_WIN32
-	for (char **env = environ; env != NULL && *env != NULL; env++) {
+	for (env = environ; env != NULL && *env != NULL; env++) {
 		import_environment_variable(Z_ARRVAL_P(array_ptr), *env);
 	}
 #else
-	wchar_t *environmentw = GetEnvironmentStringsW();
-	for (wchar_t *envw = environmentw; envw != NULL && *envw; envw += wcslen(envw) + 1) {
-		char *env = php_win32_cp_w_to_any(envw);
-		if (env != NULL) {
-			import_environment_variable(Z_ARRVAL_P(array_ptr), env);
-			free(env);
-		}
+	environment = GetEnvironmentStringsA();
+	for (env = environment; env != NULL && *env; env += strlen(env) + 1) {
+		import_environment_variable(Z_ARRVAL_P(array_ptr), env);
 	}
-	FreeEnvironmentStringsW(environmentw);
+	FreeEnvironmentStringsA(environment);
 #endif
 
 	tsrm_env_unlock();
 }
 
-bool php_std_auto_global_callback(char *name, uint32_t name_len)
+zend_bool php_std_auto_global_callback(char *name, uint32_t name_len)
 {
 	zend_printf("%s\n", name);
 	return 0; /* don't rearm */
 }
 
-/* {{{ php_build_argv */
-PHPAPI void php_build_argv(const char *s, zval *track_vars_array)
+/* {{{ php_build_argv
+ */
+PHPAPI void php_build_argv(char *s, zval *track_vars_array)
 {
 	zval arr, argc, tmp;
 	int count = 0;
+	char *ss, *space;
 
 	if (!(SG(request_info).argc || track_vars_array)) {
 		return;
@@ -613,18 +628,24 @@ PHPAPI void php_build_argv(const char *s, zval *track_vars_array)
 			}
 		}
 	} else 	if (s && *s) {
-		while (1) {
-			const char *space = strchr(s, '+');
+		ss = s;
+		while (ss) {
+			space = strchr(ss, '+');
+			if (space) {
+				*space = '\0';
+			}
 			/* auto-type */
-			ZVAL_STRINGL(&tmp, s, space ? space - s : strlen(s));
+			ZVAL_STRING(&tmp, ss);
 			count++;
 			if (zend_hash_next_index_insert(Z_ARRVAL(arr), &tmp) == NULL) {
 				zend_string_efree(Z_STR(tmp));
 			}
-			if (!space) {
-				break;
+			if (space) {
+				*space = '+';
+				ss = space + 1;
+			} else {
+				ss = space;
 			}
-			s = space + 1;
 		}
 	}
 
@@ -649,7 +670,8 @@ PHPAPI void php_build_argv(const char *s, zval *track_vars_array)
 }
 /* }}} */
 
-/* {{{ php_register_server_variables */
+/* {{{ php_register_server_variables
+ */
 static inline void php_register_server_variables(void)
 {
 	zval tmp;
@@ -687,7 +709,8 @@ static inline void php_register_server_variables(void)
 }
 /* }}} */
 
-/* {{{ php_autoglobal_merge */
+/* {{{ php_autoglobal_merge
+ */
 static void php_autoglobal_merge(HashTable *dest, HashTable *src)
 {
 	zval *src_entry, *dest_entry;
@@ -719,7 +742,8 @@ static void php_autoglobal_merge(HashTable *dest, HashTable *src)
 }
 /* }}} */
 
-/* {{{ php_hash_environment */
+/* {{{ php_hash_environment
+ */
 PHPAPI int php_hash_environment(void)
 {
 	memset(PG(http_globals), 0, sizeof(PG(http_globals)));
@@ -731,7 +755,7 @@ PHPAPI int php_hash_environment(void)
 }
 /* }}} */
 
-static bool php_auto_globals_create_get(zend_string *name)
+static zend_bool php_auto_globals_create_get(zend_string *name)
 {
 	if (PG(variables_order) && (strchr(PG(variables_order),'G') || strchr(PG(variables_order),'g'))) {
 		sapi_module.treat_data(PARSE_GET, NULL, NULL);
@@ -746,7 +770,7 @@ static bool php_auto_globals_create_get(zend_string *name)
 	return 0; /* don't rearm */
 }
 
-static bool php_auto_globals_create_post(zend_string *name)
+static zend_bool php_auto_globals_create_post(zend_string *name)
 {
 	if (PG(variables_order) &&
 			(strchr(PG(variables_order),'P') || strchr(PG(variables_order),'p')) &&
@@ -765,7 +789,7 @@ static bool php_auto_globals_create_post(zend_string *name)
 	return 0; /* don't rearm */
 }
 
-static bool php_auto_globals_create_cookie(zend_string *name)
+static zend_bool php_auto_globals_create_cookie(zend_string *name)
 {
 	if (PG(variables_order) && (strchr(PG(variables_order),'C') || strchr(PG(variables_order),'c'))) {
 		sapi_module.treat_data(PARSE_COOKIE, NULL, NULL);
@@ -780,7 +804,7 @@ static bool php_auto_globals_create_cookie(zend_string *name)
 	return 0; /* don't rearm */
 }
 
-static bool php_auto_globals_create_files(zend_string *name)
+static zend_bool php_auto_globals_create_files(zend_string *name)
 {
 	if (Z_TYPE(PG(http_globals)[TRACK_VARS_FILES]) == IS_UNDEF) {
 		array_init(&PG(http_globals)[TRACK_VARS_FILES]);
@@ -792,7 +816,7 @@ static bool php_auto_globals_create_files(zend_string *name)
 	return 0; /* don't rearm */
 }
 
-/* Ugly hack to fix HTTP_PROXY issue, see bug #72573 */
+/* Upgly hack to fix HTTP_PROXY issue, see bug #72573 */
 static void check_http_proxy(HashTable *var_table)
 {
 	if (zend_hash_str_exists(var_table, "HTTP_PROXY", sizeof("HTTP_PROXY")-1)) {
@@ -808,7 +832,7 @@ static void check_http_proxy(HashTable *var_table)
 	}
 }
 
-static bool php_auto_globals_create_server(zend_string *name)
+static zend_bool php_auto_globals_create_server(zend_string *name)
 {
 	if (PG(variables_order) && (strchr(PG(variables_order),'S') || strchr(PG(variables_order),'s'))) {
 		php_register_server_variables();
@@ -845,7 +869,7 @@ static bool php_auto_globals_create_server(zend_string *name)
 	return 0; /* don't rearm */
 }
 
-static bool php_auto_globals_create_env(zend_string *name)
+static zend_bool php_auto_globals_create_env(zend_string *name)
 {
 	zval_ptr_dtor_nogc(&PG(http_globals)[TRACK_VARS_ENV]);
 	array_init(&PG(http_globals)[TRACK_VARS_ENV]);
@@ -861,7 +885,7 @@ static bool php_auto_globals_create_env(zend_string *name)
 	return 0; /* don't rearm */
 }
 
-static bool php_auto_globals_create_request(zend_string *name)
+static zend_bool php_auto_globals_create_request(zend_string *name)
 {
 	zval form_variables;
 	unsigned char _gpc_flags[3] = {0, 0, 0};
@@ -910,8 +934,8 @@ void php_startup_auto_globals(void)
 	zend_register_auto_global(zend_string_init_interned("_GET", sizeof("_GET")-1, 1), 0, php_auto_globals_create_get);
 	zend_register_auto_global(zend_string_init_interned("_POST", sizeof("_POST")-1, 1), 0, php_auto_globals_create_post);
 	zend_register_auto_global(zend_string_init_interned("_COOKIE", sizeof("_COOKIE")-1, 1), 0, php_auto_globals_create_cookie);
-	zend_register_auto_global(ZSTR_KNOWN(ZEND_STR_AUTOGLOBAL_SERVER), PG(auto_globals_jit), php_auto_globals_create_server);
-	zend_register_auto_global(ZSTR_KNOWN(ZEND_STR_AUTOGLOBAL_ENV), PG(auto_globals_jit), php_auto_globals_create_env);
-	zend_register_auto_global(ZSTR_KNOWN(ZEND_STR_AUTOGLOBAL_REQUEST), PG(auto_globals_jit), php_auto_globals_create_request);
+	zend_register_auto_global(zend_string_init_interned("_SERVER", sizeof("_SERVER")-1, 1), PG(auto_globals_jit), php_auto_globals_create_server);
+	zend_register_auto_global(zend_string_init_interned("_ENV", sizeof("_ENV")-1, 1), PG(auto_globals_jit), php_auto_globals_create_env);
+	zend_register_auto_global(zend_string_init_interned("_REQUEST", sizeof("_REQUEST")-1, 1), PG(auto_globals_jit), php_auto_globals_create_request);
 	zend_register_auto_global(zend_string_init_interned("_FILES", sizeof("_FILES")-1, 1), 0, php_auto_globals_create_files);
 }

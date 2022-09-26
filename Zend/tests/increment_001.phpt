@@ -8,36 +8,31 @@ precision=14
 <?php
 
 $a = array(
-    array(1,2,3),
-    "",
-    1,
-    2.5,
-    0,
-    "string",
-    "123",
-    "2.5",
-    NULL,
-    true,
-    false,
-    new stdclass,
-    array(),
-    PHP_INT_MAX,
-    (string)PHP_INT_MAX
+	array(1,2,3),
+	"",
+	1,
+	2.5,
+	0,
+	"string",
+	"123",
+	"2.5",
+	NULL,
+	true,
+	false,
+	new stdclass,
+	array(),
+	PHP_INT_MAX,
+	(string)PHP_INT_MAX
 );
 
 foreach ($a as $var) {
-    try {
-        $var++;
-    } catch (TypeError $e) {
-        echo $e->getMessage(), "\n";
-    }
-    var_dump($var);
+	$var++;
+	var_dump($var);
 }
 
 echo "Done\n";
 ?>
 --EXPECTF--
-Cannot increment array
 array(3) {
   [0]=>
   int(1)
@@ -56,10 +51,8 @@ float(3.5)
 int(1)
 bool(true)
 bool(false)
-Cannot increment stdClass
 object(stdClass)#%d (0) {
 }
-Cannot increment array
 array(0) {
 }
 float(2147483648)

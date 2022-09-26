@@ -34,12 +34,6 @@
 # define ZEND_VM_KIND		ZEND_VM_KIND_CALL
 #endif
 
-#if (ZEND_VM_KIND == ZEND_VM_KIND_HYBRID) && !defined(__SANITIZE_ADDRESS__)
-# if ((defined(i386) && !defined(__PIC__)) || defined(__x86_64__) || defined(_M_X64))
-#  define ZEND_VM_HYBRID_JIT_RED_ZONE_SIZE 16
-# endif
-#endif
-
 #define ZEND_VM_OP_SPEC          0x00000001
 #define ZEND_VM_OP_CONST         0x00000002
 #define ZEND_VM_OP_TMPVAR        0x00000004
@@ -60,7 +54,7 @@
 #define ZEND_VM_EXT_ARRAY_INIT   0x00080000
 #define ZEND_VM_EXT_REF          0x00100000
 #define ZEND_VM_EXT_FETCH_REF    0x00200000
-#define ZEND_VM_EXT_DIM_WRITE    0x00400000
+#define ZEND_VM_EXT_DIM_OBJ_WRITE 0x00400000
 #define ZEND_VM_EXT_MASK         0x0f000000
 #define ZEND_VM_EXT_NUM          0x01000000
 #define ZEND_VM_EXT_LAST_CATCH   0x02000000
@@ -79,7 +73,6 @@ BEGIN_EXTERN_C()
 
 ZEND_API const char* ZEND_FASTCALL zend_get_opcode_name(zend_uchar opcode);
 ZEND_API uint32_t ZEND_FASTCALL zend_get_opcode_flags(zend_uchar opcode);
-ZEND_API zend_uchar zend_get_opcode_id(const char *name, size_t length);
 
 END_EXTERN_C()
 
@@ -278,15 +271,7 @@ END_EXTERN_C()
 #define ZEND_GET_CALLED_CLASS           192
 #define ZEND_GET_TYPE                   193
 #define ZEND_ARRAY_KEY_EXISTS           194
-#define ZEND_MATCH                      195
-#define ZEND_CASE_STRICT                196
-#define ZEND_MATCH_ERROR                197
-#define ZEND_JMP_NULL                   198
-#define ZEND_CHECK_UNDEF_ARGS           199
-#define ZEND_FETCH_GLOBALS              200
-#define ZEND_VERIFY_NEVER_TYPE          201
-#define ZEND_CALLABLE_CONVERT           202
 
-#define ZEND_VM_LAST_OPCODE             202
+#define ZEND_VM_LAST_OPCODE             194
 
 #endif

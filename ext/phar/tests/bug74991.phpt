@@ -1,7 +1,7 @@
 --TEST--
 Phar: PHP bug #74991: include_path has a 4096 char (minus "__DIR__:") limit, in some PHAR cases
---EXTENSIONS--
-phar
+--SKIPIF--
+<?php if (!extension_loaded("phar")) die("skip");
 --INI--
 phar.readonly=0
 --FILE--
@@ -20,5 +20,4 @@ require('phar://sample.phar/some/file');
 unlink('path/needle.php');
 unlink('sample.phar');
 rmdir('path');
-?>
 --EXPECT--

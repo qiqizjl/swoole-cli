@@ -2,12 +2,17 @@
 SplFileObject::seek function - test parameters
 --FILE--
 <?php
-$obj = new SplFileObject(__FILE__);
+$obj = New SplFileObject(__FILE__);
+$obj->seek(1,2);
+$obj->seek();
 try {
-    $obj->seek(-1);
-} catch (\ValueError $e) {
-    echo($e->getMessage());
+	$obj->seek(-1);
+} catch (LogicException $e) {
+	echo($e->getMessage());
 }
 ?>
---EXPECT--
-SplFileObject::seek(): Argument #1 ($line) must be greater than or equal to 0
+--EXPECTF--
+Warning: SplFileObject::seek() expects exactly 1 parameter, 2 given in %s
+
+Warning: SplFileObject::seek() expects exactly 1 parameter, 0 given in %s
+Can't seek file %s to negative line %s

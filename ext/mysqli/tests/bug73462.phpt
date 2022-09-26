@@ -1,9 +1,9 @@
 --TEST--
 Bug #73462 (Persistent connections don't set $connect_errno)
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 ?>
 --FILE--
@@ -19,11 +19,7 @@ require_once('skipifconnectfailure.inc');
 
     /* Failed connection to invalid host */
     $mysql_2 = @new mysqli(' !!! invalid !!! ', $user, $passwd, $db);
-    try {
-        $mysql_2->close();
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    @$mysql_2->close();
 
     /* Re-use persistent connection */
     $mysql_3 = new mysqli('p:'.$host, $user, $passwd, $db);
@@ -42,5 +38,4 @@ require_once('skipifconnectfailure.inc');
     print "done!";
 ?>
 --EXPECT--
-mysqli object is already closed
 done!

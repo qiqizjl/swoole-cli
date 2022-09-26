@@ -1,7 +1,7 @@
 --TEST--
 PDO_sqlite: Testing sqliteCreateFunction()
---EXTENSIONS--
-pdo_sqlite
+--SKIPIF--
+<?php if (!extension_loaded('pdo_sqlite')) print 'skip not loaded'; ?>
 --FILE--
 <?php
 
@@ -17,7 +17,7 @@ $db->sqliteCreateFunction('testing', function($v) { return strtolower($v); });
 
 
 foreach ($db->query('SELECT testing(name) FROM foobar') as $row) {
-    var_dump($row);
+	var_dump($row);
 }
 
 $db->query('DROP TABLE foobar');

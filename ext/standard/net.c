@@ -1,11 +1,13 @@
 /*
    +----------------------------------------------------------------------+
+   | PHP Version 7                                                        |
+   +----------------------------------------------------------------------+
    | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
-   | https://www.php.net/license/3_01.txt                                 |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -27,12 +29,6 @@
 
 #if HAVE_GETIFADDRS
 # include <ifaddrs.h>
-#elif defined(__PASE__)
-/* IBM i implements getifaddrs, but under its own name */
-#include <as400_protos.h>
-#define getifaddrs Qp2getifaddrs
-#define freeifaddrs Qp2freeifaddrs
-#define ifaddrs ifaddrs_pase
 #endif
 
 #ifdef PHP_WIN32
@@ -83,7 +79,7 @@ PHPAPI zend_string* php_inet_ntop(const struct sockaddr *addr) {
 #ifdef AF_INET6
 		case AF_INET6:
 			addrlen = sizeof(struct sockaddr_in6);
-			ZEND_FALLTHROUGH;
+			/* fallthrough */
 #endif
 		case AF_INET: {
 			zend_string *ret = zend_string_alloc(NI_MAXHOST, 0);
@@ -102,7 +98,7 @@ PHPAPI zend_string* php_inet_ntop(const struct sockaddr *addr) {
 	return NULL;
 }
 
-#if defined(PHP_WIN32) || HAVE_GETIFADDRS || defined(__PASE__)
+#if defined(PHP_WIN32) || HAVE_GETIFADDRS
 static void iface_append_unicast(zval *unicast, zend_long flags,
                                  struct sockaddr *addr, struct sockaddr *netmask,
                                  struct sockaddr *broadcast, struct sockaddr *ptp) {
@@ -132,8 +128,10 @@ static void iface_append_unicast(zval *unicast, zend_long flags,
 
 	add_next_index_zval(unicast, &u);
 }
+#endif
 
-/* {{{ Returns an array in the form:
+/* {{{ proto array|false net_get_interfaces()
+Returns an array in the form:
 array(
   'ifacename' => array(
     'description' => 'Awesome interface', // Win32 only
@@ -264,7 +262,7 @@ PHP_FUNCTION(net_get_interfaces) {
 	FREE(pAddresses);
 #undef MALLOC
 #undef FREE
-#elif HAVE_GETIFADDRS || defined(__PASE__) /* !PHP_WIN32 */
+#elif HAVE_GETIFADDRS /* !PHP_WIN32 */
 	struct ifaddrs *addrs = NULL, *p;
 
 	ZEND_PARSE_PARAMETERS_NONE();
@@ -306,8 +304,8 @@ PHP_FUNCTION(net_get_interfaces) {
 	freeifaddrs(addrs);
 #else
 	/* Should never happen as we never register the function */
-	ZEND_UNREACHABLE();
+	php_error(E_WARNING, "No support for net_get_interfaces");
+	RETURN_FALSE;
 #endif
 }
-#endif
 /* }}} */

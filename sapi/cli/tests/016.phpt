@@ -1,12 +1,10 @@
 --TEST--
 CLI -a and readline
---EXTENSIONS--
-readline
 --SKIPIF--
 <?php
 include "skipif.inc";
-if (readline_info('done') === NULL) {
-    die ("skip need readline support");
+if (!extension_loaded('readline') || readline_info('done') === NULL) {
+	die ("skip need readline support");
 }
 ?>
 --FILE--
@@ -54,9 +52,9 @@ a_function_w	);
 EOT;
 
 foreach ($codes as $key => $code) {
-    echo "\n--------------\nSnippet no. $key:\n--------------\n";
-    $code = escapeshellarg($code);
-    echo `echo $code | "$php" -a`, "\n";
+	echo "\n--------------\nSnippet no. $key:\n--------------\n";
+	$code = escapeshellarg($code);
+	echo `echo $code | "$php" -a`, "\n";
 }
 
 echo "\nDone\n";

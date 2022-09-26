@@ -27,7 +27,7 @@ var_dump($o->key());
 echo "===A===\n";
 foreach($o as $n => $l)
 {
-    var_dump($n, $l);
+	var_dump($n, $l);
 }
 
 echo "===B===\n";
@@ -35,10 +35,11 @@ $o = new SplFileObject(__DIR__ . '/fileobject_001b.txt');
 $o->setFlags(SplFileObject::DROP_NEW_LINE);
 foreach($o as $n => $l)
 {
-    var_dump($n, $l);
+	var_dump($n, $l);
 }
 
 ?>
+===DONE===
 --EXPECTF--
 int(0)
 string(%d) "0
@@ -84,3 +85,4 @@ int(4)
 string(1) "4"
 int(5)
 string(1) "5"
+===DONE===

@@ -1,7 +1,9 @@
 --TEST--
 Bug #70752 (Depacking with wrong password leaves 0 length files)
---EXTENSIONS--
-zip
+--SKIPIF--
+<?php
+if (!extension_loaded('zip')) die('skip zip extension not available');
+?>
 --FILE--
 <?php
 $filename = __DIR__ . DIRECTORY_SEPARATOR . 'bug70752.zip';
@@ -17,9 +19,11 @@ $zip->close();
 
 var_dump(file_exists($filename));
 ?>
+===DONE===
 --EXPECT--
 bool(false)
 bool(false)
+===DONE===
 --CLEAN--
 <?php
 $filename =  __DIR__ . DIRECTORY_SEPARATOR . 'bug70752.txt';

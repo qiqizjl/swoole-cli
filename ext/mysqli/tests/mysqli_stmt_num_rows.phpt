@@ -1,14 +1,23 @@
 --TEST--
 mysqli_stmt_num_rows()
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 ?>
 --FILE--
 <?php
     require_once("connect.inc");
+
+    $tmp    = NULL;
+    $link   = NULL;
+
+    if (!is_null($tmp = @mysqli_stmt_num_rows()))
+        printf("[001] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
+    if (!is_null($tmp = @mysqli_stmt_num_rows($link)))
+        printf("[002] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
 
     require('table.inc');
 
@@ -92,11 +101,8 @@ require_once('skipifconnectfailure.inc');
 
     mysqli_stmt_close($stmt);
 
-    try {
-        mysqli_stmt_num_rows($stmt);
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    if (false !== ($tmp = mysqli_stmt_num_rows($stmt)))
+        printf("[056] Expecting false, got %s/%s\n", gettype($tmp), $tmp);
 
     mysqli_close($link);
     print "done!";
@@ -105,7 +111,8 @@ require_once('skipifconnectfailure.inc');
 <?php
     require_once("clean_table.inc");
 ?>
---EXPECT--
+--EXPECTF--
 run_tests.php don't fool me with your 'ungreedy' expression '.+?'!
-mysqli_stmt object is already closed
+
+Warning: mysqli_stmt_num_rows(): Couldn't fetch mysqli_stmt in %s on line %d
 done!

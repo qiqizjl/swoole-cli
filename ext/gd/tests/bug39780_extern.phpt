@@ -1,10 +1,9 @@
 --TEST--
 Bug #39780 (PNG image with CRC/data error raises a fatal error)
---EXTENSIONS--
-gd
 --SKIPIF--
 <?php
-    if (GD_BUNDLED) die("skip requires extern GD\n");
+	if (!extension_loaded('gd')) die("skip gd extension not available\n");
+	if (GD_BUNDLED) die("skip requires extern GD\n");
 ?>
 --FILE--
 <?php
@@ -15,5 +14,5 @@ var_dump($im);
 --EXPECTF--
 gd-png:  fatal libpng error: Read Error: truncated data
 gd-png error: setjmp returns error condition 2
-Warning: imagecreatefrompng(): v%sbug39780.png" is not a valid PNG file in /%s on line %d
+Warning: imagecreatefrompng(): '%sbug39780.png' is not a valid PNG file in /%s on line %d
 bool(false)

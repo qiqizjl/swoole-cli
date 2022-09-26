@@ -5,6 +5,9 @@ phpinfo()
 var_dump(phpinfo());
 
 echo "--\n";
+var_dump(phpinfo(array()));
+
+echo "--\n";
 var_dump(phpinfo(0));
 
 echo "--\n";
@@ -58,6 +61,10 @@ PHP Variables
 PHP License
 %A
 bool(true)
+--
+
+Warning: phpinfo() expects parameter 1 to be int, array given in %sphpinfo.php on line 5
+NULL
 --
 phpinfo()
 bool(true)

@@ -1,9 +1,8 @@
 --TEST--
 PDO Common: Bug #71447 (Quotes inside comments not properly handled)
---EXTENSIONS--
-pdo
 --SKIPIF--
 <?php
+if (!extension_loaded('pdo')) die('skip');
 $dir = getenv('REDIR_TEST_DIR');
 if (false == $dir) die('skip no driver');
 require_once $dir . 'pdo_test.inc';
@@ -23,9 +22,9 @@ $db->exec('INSERT INTO test VALUES(1)');
 
 // Comment without quotes or placeholders
 $stmt = $db->prepare("
-    SELECT -- That's all folks!
-        '\"abc\":8000'
-    FROM test
+	SELECT -- Thats all folks!
+		'\"abc\":8000'
+	FROM test
 ");
 
 $stmt->execute();
@@ -33,9 +32,9 @@ var_dump($stmt->fetchColumn());
 
 // Comment and placeholder within a string
 $stmt = $db->prepare("
-    SELECT
-        '\"abc\":8001 -- Wat?'
-    FROM test
+	SELECT
+		'\"abc\":8001 -- Wat?'
+	FROM test
 ");
 
 $stmt->execute();
@@ -43,9 +42,9 @@ var_dump($stmt->fetchColumn());
 
 // Comment with single quote
 $stmt = $db->prepare("
-    SELECT -- That's all folks!
-        '\"abc\":8002'
-    FROM test
+	SELECT -- That's all folks!
+		'\"abc\":8002'
+	FROM test
 ");
 
 $stmt->execute();
@@ -53,9 +52,9 @@ var_dump($stmt->fetchColumn());
 
 // C-Style comment with single quote
 $stmt = $db->prepare("
-    SELECT /* That's all folks! */
-        '\"abc\":8003'
-    FROM test
+	SELECT /* That's all folks! */
+		'\"abc\":8003'
+	FROM test
 ");
 
 $stmt->execute();
@@ -63,9 +62,9 @@ var_dump($stmt->fetchColumn());
 
 // Comment with double quote
 $stmt = $db->prepare("
-    SELECT -- Is it only \"single quotes?
-        '\"abc\":8004'
-    FROM test
+	SELECT -- Is it only \"single quotes?
+		'\"abc\":8004'
+	FROM test
 ");
 
 $stmt->execute();
@@ -73,10 +72,10 @@ var_dump($stmt->fetchColumn());
 
 // Comment with ? placeholder
 $stmt = $db->prepare("
-    SELECT -- What about question marks here?
-        *
-    FROM test
-    WHERE id = ?
+	SELECT -- What about question marks here?
+		*
+	FROM test
+	WHERE id = ?
 ");
 
 $stmt->execute([1]);
@@ -84,10 +83,10 @@ var_dump($stmt->fetchColumn());
 
 // Comment with named placeholder
 $stmt = $db->prepare("
-    SELECT -- What about placeholders :bar
-        *
-    FROM test
-    WHERE id = :id
+	SELECT -- What about placeholders :bar
+		*
+	FROM test
+	WHERE id = :id
 ");
 
 $stmt->execute(['id' => 1]);

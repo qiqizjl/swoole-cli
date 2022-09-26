@@ -2,8 +2,10 @@
 MessageFormatter::format(): DateTime accepted to format dates and times
 --INI--
 date.timezone=Atlantic/Azores
---EXTENSIONS--
-intl
+--SKIPIF--
+<?php
+if (!extension_loaded('intl'))
+	die('skip intl extension not enabled');
 --FILE--
 <?php
 ini_set("intl.error_level", E_WARNING);
@@ -22,6 +24,8 @@ var_dump($mf->format(array($dt)));
 var_dump($mf->format(array($dti)));
 
 ?>
+==DONE==
 --EXPECTF--
 string(%s) "May %d, 2012 %d:%d:42 %s"
 string(%s) "May %d, 2012 %d:%d:42 %s"
+==DONE==

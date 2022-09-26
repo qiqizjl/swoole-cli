@@ -12,7 +12,6 @@ foreach ($tests as $t) {
     echo bin2hex(utf8_decode($t)), "\n";
 }
 echo "Done.\n";
-?>
 --EXPECT--
 413f3e42
 3f22

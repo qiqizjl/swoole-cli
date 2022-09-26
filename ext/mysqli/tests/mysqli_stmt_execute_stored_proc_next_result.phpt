@@ -1,9 +1,8 @@
 --TEST--
 mysqli_stmt_execute() - SP, next result
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
 require_once('skipifconnectfailure.inc');
 require_once('connect.inc');
 if (!$link = my_mysqli_connect($host, $user, $passwd, $db, $port, $socket)) {

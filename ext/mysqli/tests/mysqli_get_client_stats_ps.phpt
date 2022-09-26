@@ -1,9 +1,9 @@
 --TEST--
 mysqli_get_client_stats() - PS
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?PHP
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 if (!function_exists('mysqli_get_client_stats')) {
     die("skip only available with mysqlnd");
@@ -91,7 +91,7 @@ mysqlnd.collect_memory_statistics=1
 ?>
 --CLEAN--
 <?php
-	require_once("clean_table.inc");
+    require_once("clean_table.inc");
 ?>
 --EXPECTF--
 BEGINNING: rows_fetched_from_client_ps_unbuffered = %d

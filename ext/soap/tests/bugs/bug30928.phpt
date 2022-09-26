@@ -1,15 +1,15 @@
 --TEST--
 Bug #30928 (When Using WSDL, SoapServer doesn't handle private or protected properties)
---EXTENSIONS--
-soap
+--SKIPIF--
+<?php require_once('skipif.inc'); ?>
 --FILE--
 <?php
 ini_set("soap.wsdl_cache_enabled", 0);
 
 class foo {
-    public    $a="a";
-    private   $b="b";
-    protected $c="c";
+	public    $a="a";
+	private   $b="b";
+	protected $c="c";
 }
 
 function test($x) {
@@ -24,7 +24,7 @@ class LocalSoapClient extends SoapClient {
     $this->server->addFunction('test');
   }
 
-  function __doRequest($request, $location, $action, $version, $one_way = 0): ?string {
+  function __doRequest($request, $location, $action, $version, $one_way = 0) {
     ob_start();
     $this->server->handle($request);
     $response = ob_get_contents();

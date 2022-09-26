@@ -1,7 +1,9 @@
 --TEST--
 Bug #79919 (Stack use-after-scope in define())
---EXTENSIONS--
-simplexml
+--SKIPIF--
+<?php
+if (!extension_loaded('simplexml')) die('skip simplexml extension not available');
+?>
 --FILE--
 <?php
 $b = error_log(0);

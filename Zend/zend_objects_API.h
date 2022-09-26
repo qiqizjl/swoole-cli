@@ -54,7 +54,7 @@ BEGIN_EXTERN_C()
 ZEND_API void ZEND_FASTCALL zend_objects_store_init(zend_objects_store *objects, uint32_t init_size);
 ZEND_API void ZEND_FASTCALL zend_objects_store_call_destructors(zend_objects_store *objects);
 ZEND_API void ZEND_FASTCALL zend_objects_store_mark_destructed(zend_objects_store *objects);
-ZEND_API void ZEND_FASTCALL zend_objects_store_free_object_storage(zend_objects_store *objects, bool fast_shutdown);
+ZEND_API void ZEND_FASTCALL zend_objects_store_free_object_storage(zend_objects_store *objects, zend_bool fast_shutdown);
 ZEND_API void ZEND_FASTCALL zend_objects_store_destroy(zend_objects_store *objects);
 
 /* Store API functions */
@@ -85,12 +85,13 @@ static zend_always_inline size_t zend_object_properties_size(zend_class_entry *c
 			((ce->ce_flags & ZEND_ACC_USE_GUARDS) ? 0 : 1));
 }
 
-/* Allocates object type and zeros it, but not the standard zend_object and properties.
- * Standard object MUST be initialized using zend_object_std_init().
+/* Allocates object type and zeros it, but not the properties.
  * Properties MUST be initialized using object_properties_init(). */
 static zend_always_inline void *zend_object_alloc(size_t obj_size, zend_class_entry *ce) {
 	void *obj = emalloc(obj_size + zend_object_properties_size(ce));
-	memset(obj, 0, obj_size - sizeof(zend_object));
+	/* Subtraction of sizeof(zval) is necessary, because zend_object_properties_size() may be
+	 * -sizeof(zval), if the object has no properties. */
+	memset(obj, 0, obj_size - sizeof(zval));
 	return obj;
 }
 
@@ -106,7 +107,7 @@ static inline zend_property_info *zend_get_property_info_for_slot(zend_object *o
 static inline zend_property_info *zend_get_typed_property_info_for_slot(zend_object *obj, zval *slot)
 {
 	zend_property_info *prop_info = zend_get_property_info_for_slot(obj, slot);
-	if (prop_info && ZEND_TYPE_IS_SET(prop_info->type)) {
+	if (prop_info && prop_info->type) {
 		return prop_info;
 	}
 	return NULL;

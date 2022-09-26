@@ -1,9 +1,9 @@
 --TEST--
 mysqli_stmt_bind_param() - Binding with very high number of columns
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 ?>
 --INI--
@@ -94,7 +94,7 @@ memory_limit=256M
 ?>
 --CLEAN--
 <?php
-	require_once("clean_table.inc");
+    require_once("clean_table.inc");
 ?>
 --EXPECTF--
 int(%d)

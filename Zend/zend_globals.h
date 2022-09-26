@@ -61,8 +61,7 @@ END_EXTERN_C()
 
 typedef struct _zend_vm_stack *zend_vm_stack;
 typedef struct _zend_ini_entry zend_ini_entry;
-typedef struct _zend_fiber_context zend_fiber_context;
-typedef struct _zend_fiber zend_fiber;
+
 
 struct _zend_compiler_globals {
 	zend_stack loop_var_stack;
@@ -78,27 +77,24 @@ struct _zend_compiler_globals {
 	HashTable *function_table;	/* function symbol table */
 	HashTable *class_table;		/* class table */
 
+	HashTable filenames_table;
+
 	HashTable *auto_globals;
 
-	/* Refer to zend_yytnamerr() in zend_language_parser.y for meaning of values */
-	zend_uchar parse_error;
-	bool in_compilation;
-	bool short_tags;
+	zend_bool parse_error;
+	zend_bool in_compilation;
+	zend_bool short_tags;
 
-	bool unclean_shutdown;
+	zend_bool unclean_shutdown;
 
-	bool ini_parser_unbuffered_errors;
+	zend_bool ini_parser_unbuffered_errors;
 
 	zend_llist open_files;
 
 	struct _zend_ini_parser_param *ini_parser_param;
 
-	bool skip_shebang;
-	bool increment_lineno;
-
-	bool variable_width_locale;   /* UTF-8, Shift-JIS, Big5, ISO 2022, EUC, etc */
-	bool ascii_compatible_locale; /* locale uses ASCII characters as singletons */
-	                              /* and don't use them as lead/trail units     */
+	zend_bool skip_shebang;
+	zend_bool increment_lineno;
 
 	zend_string *doc_comment;
 	uint32_t extra_fn_flags;
@@ -114,9 +110,9 @@ struct _zend_compiler_globals {
 
 	const zend_encoding **script_encoding_list;
 	size_t script_encoding_list_size;
-	bool multibyte;
-	bool detect_unicode;
-	bool encoding_declared;
+	zend_bool multibyte;
+	zend_bool detect_unicode;
+	zend_bool encoding_declared;
 
 	zend_ast *ast;
 	zend_arena *ast_arena;
@@ -125,19 +121,14 @@ struct _zend_compiler_globals {
 	HashTable *memoized_exprs;
 	int memoize_mode;
 
-	void   *map_ptr_real_base;
 	void   *map_ptr_base;
 	size_t  map_ptr_size;
 	size_t  map_ptr_last;
 
 	HashTable *delayed_variance_obligations;
 	HashTable *delayed_autoloads;
-	HashTable *unlinked_uses;
-	zend_class_entry *current_linking_class;
 
 	uint32_t rtd_key_counter;
-
-	zend_stack short_circuiting_opnums;
 };
 
 
@@ -173,8 +164,6 @@ struct _zend_executor_globals {
 	struct _zend_execute_data *current_execute_data;
 	zend_class_entry *fake_scope; /* used to avoid checks accessing properties */
 
-	uint32_t jit_trace_num; /* Used by tracing JIT to reference the currently running trace */
-
 	zend_long precision;
 
 	int ticks_count;
@@ -184,13 +173,14 @@ struct _zend_executor_globals {
 	uint32_t persistent_classes_count;
 
 	HashTable *in_autoload;
-	bool full_tables_cleanup;
+	zend_function *autoload_func;
+	zend_bool full_tables_cleanup;
 
 	/* for extended information support */
-	bool no_extensions;
+	zend_bool no_extensions;
 
-	bool vm_interrupt;
-	bool timed_out;
+	zend_bool vm_interrupt;
+	zend_bool timed_out;
 	zend_long hard_timeout;
 
 #ifdef ZEND_WIN32
@@ -213,7 +203,7 @@ struct _zend_executor_globals {
 	/* timeout support */
 	zend_long timeout_seconds;
 
-	int capture_warnings_during_sccp;
+	int lambda_count;
 
 	HashTable *ini_directives;
 	HashTable *modified_ini_directives;
@@ -226,12 +216,12 @@ struct _zend_executor_globals {
 
 	struct _zend_module_entry *current_module;
 
-	bool active;
+	zend_bool active;
 	zend_uchar flags;
 
 	zend_long assertions;
 
-	uint32_t           ht_iterators_count;     /* number of allocated slots */
+	uint32_t           ht_iterators_count;     /* number of allocatd slots */
 	uint32_t           ht_iterators_used;      /* number of used slots */
 	HashTableIterator *ht_iterators;
 	HashTableIterator  ht_iterators_slots[16];
@@ -244,27 +234,11 @@ struct _zend_executor_globals {
 	zend_function trampoline;
 	zend_op       call_trampoline_op;
 
+	zend_bool each_deprecation_thrown;
+
 	HashTable weakrefs;
 
-	bool exception_ignore_args;
-	zend_long exception_string_param_max_len;
-
-	zend_get_gc_buffer get_gc_buffer;
-
-	zend_fiber_context *main_fiber_context;
-	zend_fiber_context *current_fiber_context;
-
-	/* Active instance of Fiber. */
-	zend_fiber *active_fiber;
-
-	/* Default fiber C stack size. */
-	zend_long fiber_stack_size;
-
-	/* If record_errors is enabled, all emitted diagnostics will be recorded,
-	 * in addition to being processed as usual. */
-	bool record_errors;
-	uint32_t num_errors;
-	zend_error_info **errors;
+	zend_bool exception_ignore_args;
 
 	void *reserved[ZEND_MAX_RESERVED_RESOURCES];
 };
@@ -287,7 +261,7 @@ struct _zend_ini_scanner_globals {
 	int yy_state;
 	zend_stack state_stack;
 
-	zend_string *filename;
+	char *filename;
 	int lineno;
 
 	/* Modes are: ZEND_INI_SCANNER_NORMAL, ZEND_INI_SCANNER_RAW, ZEND_INI_SCANNER_TYPED */
@@ -313,10 +287,9 @@ struct _zend_php_scanner_globals {
 	int yy_state;
 	zend_stack state_stack;
 	zend_ptr_stack heredoc_label_stack;
-	zend_stack nest_location_stack; /* for syntax error reporting */
-	bool heredoc_scan_ahead;
+	zend_bool heredoc_scan_ahead;
 	int heredoc_indentation;
-	bool heredoc_indentation_uses_spaces;
+	zend_bool heredoc_indentation_uses_spaces;
 
 	/* original (unfiltered) script */
 	unsigned char *script_org;
@@ -335,9 +308,7 @@ struct _zend_php_scanner_globals {
 	int scanned_string_len;
 
 	/* hooks */
-	void (*on_event)(
-		zend_php_scanner_event event, int token, int line,
-		const char *text, size_t length, void *context);
+	void (*on_event)(zend_php_scanner_event event, int token, int line, void *context);
 	void *on_event_context;
 };
 

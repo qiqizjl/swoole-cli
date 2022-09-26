@@ -1,11 +1,13 @@
 /*
    +----------------------------------------------------------------------+
+   | PHP Version 7                                                        |
+   +----------------------------------------------------------------------+
    | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
-   | https://www.php.net/license/3_01.txt                                 |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -20,7 +22,7 @@
 #endif
 
 #include "php.h"
-#if defined(HAVE_LIBXML) && defined(HAVE_DOM)
+#if HAVE_LIBXML && HAVE_DOM
 #include "php_dom.h"
 
 
@@ -30,6 +32,10 @@
 * URL: https://www.w3.org/TR/2003/WD-DOM-Level-3-Core-20030226/DOM3-Core.html#ID-527DCFF2
 * Since:
 */
+
+const zend_function_entry php_dom_entity_class_functions[] = {
+	PHP_FE_END
+};
 
 /* {{{ publicId	string
 readonly=yes
@@ -41,7 +47,7 @@ int dom_entity_public_id_read(dom_object *obj, zval *retval)
 	xmlEntity *nodep = (xmlEntity *) dom_object_get_node(obj);
 
 	if (nodep == NULL) {
-		php_dom_throw_error(INVALID_STATE_ERR, 1);
+		php_dom_throw_error(INVALID_STATE_ERR, 0);
 		return FAILURE;
 	}
 
@@ -66,7 +72,7 @@ int dom_entity_system_id_read(dom_object *obj, zval *retval)
 	xmlEntity *nodep = (xmlEntity *) dom_object_get_node(obj);
 
 	if (nodep == NULL) {
-		php_dom_throw_error(INVALID_STATE_ERR, 1);
+		php_dom_throw_error(INVALID_STATE_ERR, 0);
 		return FAILURE;
 	}
 
@@ -92,7 +98,7 @@ int dom_entity_notation_name_read(dom_object *obj, zval *retval)
 	char *content;
 
 	if (nodep == NULL) {
-		php_dom_throw_error(INVALID_STATE_ERR, 1);
+		php_dom_throw_error(INVALID_STATE_ERR, 0);
 		return FAILURE;
 	}
 
@@ -110,7 +116,7 @@ int dom_entity_notation_name_read(dom_object *obj, zval *retval)
 /* }}} */
 
 /* {{{ actualEncoding	string
-readonly=yes
+readonly=no
 URL: http://www.w3.org/TR/2003/WD-DOM-Level-3-Core-20030226/DOM3-Core.html#Entity3-actualEncoding
 Since: DOM Level 3
 */
@@ -120,10 +126,15 @@ int dom_entity_actual_encoding_read(dom_object *obj, zval *retval)
 	return SUCCESS;
 }
 
+int dom_entity_actual_encoding_write(dom_object *obj, zval *newval)
+{
+	return SUCCESS;
+}
+
 /* }}} */
 
 /* {{{ encoding	string
-readonly=yes
+readonly=no
 URL: http://www.w3.org/TR/2003/WD-DOM-Level-3-Core-20030226/DOM3-Core.html#Entity3-encoding
 Since: DOM Level 3
 */
@@ -133,16 +144,26 @@ int dom_entity_encoding_read(dom_object *obj, zval *retval)
 	return SUCCESS;
 }
 
+int dom_entity_encoding_write(dom_object *obj, zval *newval)
+{
+	return SUCCESS;
+}
+
 /* }}} */
 
 /* {{{ version	string
-readonly=yes
+readonly=no
 URL: http://www.w3.org/TR/2003/WD-DOM-Level-3-Core-20030226/DOM3-Core.html#Entity3-version
 Since: DOM Level 3
 */
 int dom_entity_version_read(dom_object *obj, zval *retval)
 {
 	ZVAL_NULL(retval);
+	return SUCCESS;
+}
+
+int dom_entity_version_write(dom_object *obj, zval *newval)
+{
 	return SUCCESS;
 }
 

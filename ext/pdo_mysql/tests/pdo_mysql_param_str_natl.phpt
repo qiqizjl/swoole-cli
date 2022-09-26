@@ -1,10 +1,8 @@
 --TEST--
 PDO MySQL national character set parameters don't affect true prepared statements
---EXTENSIONS--
-pdo
-pdo_mysql
 --SKIPIF--
 <?php
+if (!extension_loaded('pdo') || !extension_loaded('pdo_mysql')) die('skip not loaded');
 require __DIR__ . '/config.inc';
 require __DIR__ . '/../../../ext/pdo/tests/pdo_test.inc';
 PDOTest::skip();
@@ -25,7 +23,7 @@ $stmt->execute();
 
 var_dump($db->query('SELECT * from test'));
 foreach ($db->query('SELECT * from test') as $row) {
-    print_r($row);
+	print_r($row);
 }
 
 ?>

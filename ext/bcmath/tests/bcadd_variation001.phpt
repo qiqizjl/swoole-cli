@@ -1,7 +1,7 @@
 --TEST--
 bcadd() with non-integers
---EXTENSIONS--
-bcmath
+--SKIPIF--
+<?php if(!extension_loaded("bcmath")) print "skip"; ?>
 --INI--
 bcmath.scale=5
 --FILE--

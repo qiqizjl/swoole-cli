@@ -24,8 +24,8 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SLJIT_CONFIG_INTERNAL_H_
-#define SLJIT_CONFIG_INTERNAL_H_
+#ifndef _SLJIT_CONFIG_INTERNAL_H_
+#define _SLJIT_CONFIG_INTERNAL_H_
 
 #if (defined SLJIT_VERBOSE && SLJIT_VERBOSE) \
 	|| (defined SLJIT_DEBUG && SLJIT_DEBUG && (!defined(SLJIT_ASSERT) || !defined(SLJIT_UNREACHABLE)))
@@ -81,12 +81,29 @@ extern "C" {
 
    Other macros:
      SLJIT_FUNC : calling convention attribute for both calling JIT from C and C calling back from JIT
-     SLJIT_W(number) : defining 64 bit constants on 64 bit architectures (platform independent helper)
+     SLJIT_W(number) : defining 64 bit constants on 64 bit architectures (compiler independent helper)
 */
 
 /*****************/
 /* Sanity check. */
 /*****************/
+
+#if !((defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) \
+	|| (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64) \
+	|| (defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5) \
+	|| (defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7) \
+	|| (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2) \
+	|| (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64) \
+	|| (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) \
+	|| (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) \
+	|| (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32) \
+	|| (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64) \
+	|| (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32) \
+	|| (defined SLJIT_CONFIG_TILEGX && SLJIT_CONFIG_TILEGX) \
+	|| (defined SLJIT_CONFIG_AUTO && SLJIT_CONFIG_AUTO) \
+	|| (defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED))
+#error "An architecture must be selected"
+#endif
 
 #if (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) \
 	+ (defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64) \
@@ -96,35 +113,14 @@ extern "C" {
 	+ (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64) \
 	+ (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) \
 	+ (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) \
+	+ (defined SLJIT_CONFIG_TILEGX && SLJIT_CONFIG_TILEGX) \
 	+ (defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32) \
 	+ (defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64) \
 	+ (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32) \
-	+ (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X) \
 	+ (defined SLJIT_CONFIG_AUTO && SLJIT_CONFIG_AUTO) \
 	+ (defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED) >= 2
 #error "Multiple architectures are selected"
 #endif
-
-#if !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32) \
-	&& !(defined SLJIT_CONFIG_X86_64 && SLJIT_CONFIG_X86_64) \
-	&& !(defined SLJIT_CONFIG_ARM_V5 && SLJIT_CONFIG_ARM_V5) \
-	&& !(defined SLJIT_CONFIG_ARM_V7 && SLJIT_CONFIG_ARM_V7) \
-	&& !(defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2) \
-	&& !(defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64) \
-	&& !(defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) \
-	&& !(defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) \
-	&& !(defined SLJIT_CONFIG_MIPS_32 && SLJIT_CONFIG_MIPS_32) \
-	&& !(defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64) \
-	&& !(defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32) \
-	&& !(defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X) \
-	&& !(defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED) \
-	&& !(defined SLJIT_CONFIG_AUTO && SLJIT_CONFIG_AUTO)
-#if defined SLJIT_CONFIG_AUTO && !SLJIT_CONFIG_AUTO
-#error "An architecture must be selected"
-#else /* SLJIT_CONFIG_AUTO */
-#define SLJIT_CONFIG_AUTO 1
-#endif /* !SLJIT_CONFIG_AUTO */
-#endif /* !SLJIT_CONFIG */
 
 /********************************************************/
 /* Automatic CPU detection (requires compiler support). */
@@ -158,8 +154,8 @@ extern "C" {
 #define SLJIT_CONFIG_MIPS_64 1
 #elif defined(__sparc__) || defined(__sparc)
 #define SLJIT_CONFIG_SPARC_32 1
-#elif defined(__s390x__)
-#define SLJIT_CONFIG_S390X 1
+#elif defined(__tilegx__)
+#define SLJIT_CONFIG_TILEGX 1
 #else
 /* Unsupported architecture */
 #define SLJIT_CONFIG_UNSUPPORTED 1
@@ -214,16 +210,18 @@ extern "C" {
 /***********************************************************/
 
 #ifdef SLJIT_CONFIG_X86
-
-#if defined(__CET__) && !(defined SLJIT_CONFIG_X86_CET && SLJIT_CONFIG_X86_CET)
+#if defined(__CET__)
 #define SLJIT_CONFIG_X86_CET 1
 #endif
-
-#if (defined SLJIT_CONFIG_X86_CET && SLJIT_CONFIG_X86_CET) && defined(__GNUC__)
+#if (defined SLJIT_CONFIG_X86_CET && SLJIT_CONFIG_X86_CET)
+#if defined(__GNUC__)
+#if !defined (__SHSTK__)
+#error "-mshstk is needed to compile with -fcf-protection"
+#endif
 #include <x86intrin.h>
 #endif
-
-#endif /* SLJIT_CONFIG_X86 */
+#endif
+#endif
 
 /**********************************/
 /* External function definitions. */
@@ -413,7 +411,7 @@ typedef long int sljit_sw;
 	&& !(defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64) \
 	&& !(defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) \
 	&& !(defined SLJIT_CONFIG_MIPS_64 && SLJIT_CONFIG_MIPS_64) \
-	&& !(defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
+	&& !(defined SLJIT_CONFIG_TILEGX && SLJIT_CONFIG_TILEGX)
 #define SLJIT_32BIT_ARCHITECTURE 1
 #define SLJIT_WORD_SHIFT 2
 typedef unsigned int sljit_uw;
@@ -455,14 +453,10 @@ typedef double sljit_f64;
 #if (defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)
 #define SLJIT_W(w)	(w##l)
 #elif (defined SLJIT_64BIT_ARCHITECTURE && SLJIT_64BIT_ARCHITECTURE)
-#ifdef _WIN64
 #define SLJIT_W(w)	(w##ll)
-#else /* !windows */
-#define SLJIT_W(w)	(w##l)
-#endif /* windows */
-#else /* 32 bit */
+#else
 #define SLJIT_W(w)	(w)
-#endif /* unknown */
+#endif
 
 #endif /* !SLJIT_W */
 
@@ -510,8 +504,7 @@ typedef double sljit_f64;
 
 #endif /* !SLJIT_MIPS_REV */
 
-#elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32) \
-	|| (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
+#elif (defined SLJIT_CONFIG_SPARC_32 && SLJIT_CONFIG_SPARC_32)
 
 #define SLJIT_BIG_ENDIAN 1
 
@@ -538,8 +531,7 @@ typedef double sljit_f64;
 	|| (defined SLJIT_CONFIG_ARM_THUMB2 && SLJIT_CONFIG_ARM_THUMB2) \
 	|| (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64) \
 	|| (defined SLJIT_CONFIG_PPC_32 && SLJIT_CONFIG_PPC_32) \
-	|| (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64) \
-	|| (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
+	|| (defined SLJIT_CONFIG_PPC_64 && SLJIT_CONFIG_PPC_64)
 #define SLJIT_UNALIGNED 1
 #endif
 
@@ -557,19 +549,17 @@ typedef double sljit_f64;
 
 #ifndef SLJIT_FUNC
 
-#if (defined SLJIT_USE_CDECL_CALLING_CONVENTION && SLJIT_USE_CDECL_CALLING_CONVENTION) \
-	|| !(defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
+#if (defined SLJIT_USE_CDECL_CALLING_CONVENTION && SLJIT_USE_CDECL_CALLING_CONVENTION)
 
+/* Force cdecl. */
 #define SLJIT_FUNC
 
-#elif defined(__GNUC__) && !defined(__APPLE__)
+#elif (defined SLJIT_CONFIG_X86_32 && SLJIT_CONFIG_X86_32)
 
-#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
+#if defined(__GNUC__) && !defined(__APPLE__)
+
 #define SLJIT_FUNC __attribute__ ((fastcall))
 #define SLJIT_X86_32_FASTCALL 1
-#else
-#define SLJIT_FUNC
-#endif /* gcc >= 3.4 */
 
 #elif defined(_MSC_VER)
 
@@ -583,10 +573,16 @@ typedef double sljit_f64;
 
 #else /* Unknown compiler. */
 
-/* The cdecl calling convention is usually the x86 default. */
+/* The cdecl attribute is the default. */
 #define SLJIT_FUNC
 
-#endif /* SLJIT_USE_CDECL_CALLING_CONVENTION */
+#endif
+
+#else /* Non x86-32 architectures. */
+
+#define SLJIT_FUNC
+
+#endif /* SLJIT_CONFIG_X86_32 */
 
 #endif /* !SLJIT_FUNC */
 
@@ -617,16 +613,8 @@ determine the next executed instruction after return. */
 SLJIT_API_FUNC_ATTRIBUTE void* sljit_malloc_exec(sljit_uw size);
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_exec(void* ptr);
 SLJIT_API_FUNC_ATTRIBUTE void sljit_free_unused_memory_exec(void);
-#define SLJIT_BUILTIN_MALLOC_EXEC(size, exec_allocator_data) sljit_malloc_exec(size)
-#define SLJIT_BUILTIN_FREE_EXEC(ptr, exec_allocator_data) sljit_free_exec(ptr)
-
-#ifndef SLJIT_MALLOC_EXEC
-#define SLJIT_MALLOC_EXEC(size, exec_allocator_data) SLJIT_BUILTIN_MALLOC_EXEC((size), (exec_allocator_data))
-#endif /* SLJIT_MALLOC_EXEC */
-
-#ifndef SLJIT_FREE_EXEC
-#define SLJIT_FREE_EXEC(ptr, exec_allocator_data) SLJIT_BUILTIN_FREE_EXEC((ptr), (exec_allocator_data))
-#endif /* SLJIT_FREE_EXEC */
+#define SLJIT_MALLOC_EXEC(size) sljit_malloc_exec(size)
+#define SLJIT_FREE_EXEC(ptr) sljit_free_exec(ptr)
 
 #if (defined SLJIT_PROT_EXECUTABLE_ALLOCATOR && SLJIT_PROT_EXECUTABLE_ALLOCATOR)
 SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
@@ -635,7 +623,7 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 #define SLJIT_EXEC_OFFSET(ptr) 0
 #endif
 
-#endif /* SLJIT_EXECUTABLE_ALLOCATOR */
+#endif
 
 /**********************************************/
 /* Registers and locals offset determination. */
@@ -711,32 +699,11 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 #define SLJIT_LOCALS_OFFSET_BASE ((16 + 1 + 6 + 2 + 1) * sizeof(sljit_sw))
 #endif
 
-#elif (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
+#elif (defined SLJIT_CONFIG_TILEGX && SLJIT_CONFIG_TILEGX)
 
-/*
- * https://refspecs.linuxbase.org/ELF/zSeries/lzsabi0_zSeries.html#STACKFRAME
- *
- * 160
- *  .. FR6
- *  .. FR4
- *  .. FR2
- * 128 FR0
- * 120 R15 (used for SP)
- * 112 R14
- * 104 R13
- *  96 R12
- *  ..
- *  48 R6
- *  ..
- *  16 R2
- *   8 RESERVED
- *   0 SP
- */
-#define SLJIT_S390X_DEFAULT_STACK_FRAME_SIZE 160
-
-#define SLJIT_NUMBER_OF_REGISTERS 12
-#define SLJIT_NUMBER_OF_SAVED_REGISTERS 8
-#define SLJIT_LOCALS_OFFSET_BASE SLJIT_S390X_DEFAULT_STACK_FRAME_SIZE
+#define SLJIT_NUMBER_OF_REGISTERS 10
+#define SLJIT_NUMBER_OF_SAVED_REGISTERS 5
+#define SLJIT_LOCALS_OFFSET_BASE 0
 
 #elif (defined SLJIT_CONFIG_UNSUPPORTED && SLJIT_CONFIG_UNSUPPORTED)
 
@@ -760,18 +727,6 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 
 #define SLJIT_NUMBER_OF_SCRATCH_FLOAT_REGISTERS \
 	(SLJIT_NUMBER_OF_FLOAT_REGISTERS - SLJIT_NUMBER_OF_SAVED_FLOAT_REGISTERS)
-
-/********************************/
-/* CPU status flags management. */
-/********************************/
-
-#if (defined SLJIT_CONFIG_ARM_32 && SLJIT_CONFIG_ARM_32) \
-	|| (defined SLJIT_CONFIG_ARM_64 && SLJIT_CONFIG_ARM_64) \
-	|| (defined SLJIT_CONFIG_MIPS && SLJIT_CONFIG_MIPS) \
-	|| (defined SLJIT_CONFIG_SPARC && SLJIT_CONFIG_SPARC) \
-	|| (defined SLJIT_CONFIG_S390X && SLJIT_CONFIG_S390X)
-#define SLJIT_HAS_STATUS_FLAGS_STATE 1
-#endif
 
 /*************************************/
 /* Debug and verbose related macros. */
@@ -836,4 +791,4 @@ SLJIT_API_FUNC_ATTRIBUTE sljit_sw sljit_exec_offset(void* ptr);
 } /* extern "C" */
 #endif
 
-#endif /* SLJIT_CONFIG_INTERNAL_H_ */
+#endif

@@ -1,11 +1,13 @@
 /*
    +----------------------------------------------------------------------+
+   | PHP Version 7                                                        |
+   +----------------------------------------------------------------------+
    | Copyright (c) The PHP Group                                          |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
-   | https://www.php.net/license/3_01.txt                                 |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -23,7 +25,6 @@
 #include "php_string.h"
 #include "php_scandir.h"
 #include "basic_functions.h"
-#include "dir_arginfo.h"
 
 #if HAVE_UNISTD_H
 #include <unistd.h>
@@ -58,40 +59,45 @@ php_dir_globals dir_globals;
 
 static zend_class_entry *dir_class_entry_ptr;
 
-#define Z_DIRECTORY_PATH_P(zv) OBJ_PROP_NUM(Z_OBJ_P(zv), 0)
-#define Z_DIRECTORY_HANDLE_P(zv) OBJ_PROP_NUM(Z_OBJ_P(zv), 1)
-
 #define FETCH_DIRP() \
-	myself = getThis(); \
-	if (!myself) { \
-		ZEND_PARSE_PARAMETERS_START(0, 1) \
-			Z_PARAM_OPTIONAL \
-			Z_PARAM_RESOURCE_OR_NULL(id) \
-		ZEND_PARSE_PARAMETERS_END(); \
-		if (id) { \
-			if ((dirp = (php_stream *)zend_fetch_resource(Z_RES_P(id), "Directory", php_file_le_stream())) == NULL) { \
-				RETURN_THROWS(); \
+	ZEND_PARSE_PARAMETERS_START(0, 1) \
+		Z_PARAM_OPTIONAL \
+		Z_PARAM_RESOURCE(id) \
+	ZEND_PARSE_PARAMETERS_END(); \
+	if (ZEND_NUM_ARGS() == 0) { \
+		myself = getThis(); \
+		if (myself) { \
+			if ((tmp = zend_hash_str_find(Z_OBJPROP_P(myself), "handle", sizeof("handle")-1)) == NULL) { \
+				php_error_docref(NULL, E_WARNING, "Unable to find my handle property"); \
+				RETURN_FALSE; \
+			} \
+			if ((dirp = (php_stream *)zend_fetch_resource_ex(tmp, "Directory", php_file_le_stream())) == NULL) { \
+				RETURN_FALSE; \
 			} \
 		} else { \
-			if (!DIRG(default_dir)) { \
-				zend_type_error("No resource supplied"); \
-				RETURN_THROWS(); \
-			} \
-			if ((dirp = (php_stream *)zend_fetch_resource(DIRG(default_dir), "Directory", php_file_le_stream())) == NULL) { \
-				RETURN_THROWS(); \
+			if (!DIRG(default_dir) || \
+				(dirp = (php_stream *)zend_fetch_resource(DIRG(default_dir), "Directory", php_file_le_stream())) == NULL) { \
+				RETURN_FALSE; \
 			} \
 		} \
 	} else { \
-		ZEND_PARSE_PARAMETERS_NONE(); \
-		zval *handle_zv = Z_DIRECTORY_HANDLE_P(myself); \
-		if (Z_TYPE_P(handle_zv) != IS_RESOURCE) { \
-			zend_throw_error(NULL, "Unable to find my handle property"); \
-			RETURN_THROWS(); \
-		} \
-		if ((dirp = (php_stream *)zend_fetch_resource_ex(handle_zv, "Directory", php_file_le_stream())) == NULL) { \
-			RETURN_THROWS(); \
+		if ((dirp = (php_stream *)zend_fetch_resource(Z_RES_P(id), "Directory", php_file_le_stream())) == NULL) { \
+			RETURN_FALSE; \
 		} \
 	}
+
+/* {{{ arginfo */
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dir, 0, 0, 0)
+	ZEND_ARG_INFO(0, dir_handle)
+ZEND_END_ARG_INFO()
+/* }}} */
+
+static const zend_function_entry php_dir_class_functions[] = {
+	PHP_FALIAS(close,	closedir,		arginfo_dir)
+	PHP_FALIAS(rewind,	rewinddir,		arginfo_dir)
+	PHP_NAMED_FE(read,  php_if_readdir, arginfo_dir)
+	PHP_FE_END
+};
 
 
 static void php_set_default_dir(zend_resource *res)
@@ -116,8 +122,10 @@ PHP_RINIT_FUNCTION(dir)
 PHP_MINIT_FUNCTION(dir)
 {
 	static char dirsep_str[2], pathsep_str[2];
+	zend_class_entry dir_class_entry;
 
-	dir_class_entry_ptr = register_class_Directory();
+	INIT_CLASS_ENTRY(dir_class_entry, "Directory", php_dir_class_functions);
+	dir_class_entry_ptr = zend_register_internal_class(&dir_class_entry);
 
 #ifdef ZTS
 	ts_allocate_id(&dir_globals_id, sizeof(php_dir_globals), NULL, NULL);
@@ -205,7 +213,7 @@ static void _php_do_opendir(INTERNAL_FUNCTION_PARAMETERS, int createobject)
 	ZEND_PARSE_PARAMETERS_START(1, 2)
 		Z_PARAM_PATH(dirname, dir_len)
 		Z_PARAM_OPTIONAL
-		Z_PARAM_RESOURCE_OR_NULL(zcontext)
+		Z_PARAM_RESOURCE(zcontext)
 	ZEND_PARSE_PARAMETERS_END();
 
 	context = php_stream_context_from_zval(zcontext, 0);
@@ -222,8 +230,8 @@ static void _php_do_opendir(INTERNAL_FUNCTION_PARAMETERS, int createobject)
 
 	if (createobject) {
 		object_init_ex(return_value, dir_class_entry_ptr);
-		ZVAL_STRINGL(Z_DIRECTORY_PATH_P(return_value), dirname, dir_len);
-		ZVAL_RES(Z_DIRECTORY_HANDLE_P(return_value), dirp->res);
+		add_property_stringl(return_value, "path", dirname, dir_len);
+		add_property_resource(return_value, "handle", dirp->res);
 		php_stream_auto_cleanup(dirp); /* so we don't get warnings under debug */
 	} else {
 		php_stream_to_zval(dirp, return_value);
@@ -231,32 +239,35 @@ static void _php_do_opendir(INTERNAL_FUNCTION_PARAMETERS, int createobject)
 }
 /* }}} */
 
-/* {{{ Open a directory and return a dir_handle */
+/* {{{ proto mixed opendir(string path[, resource context])
+   Open a directory and return a dir_handle */
 PHP_FUNCTION(opendir)
 {
 	_php_do_opendir(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
 }
 /* }}} */
 
-/* {{{ Directory class with properties, handle and class and methods read, rewind and close */
-PHP_FUNCTION(dir)
+/* {{{ proto object dir(string directory[, resource context])
+   Directory class with properties, handle and class and methods read, rewind and close */
+PHP_FUNCTION(getdir)
 {
 	_php_do_opendir(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
 }
 /* }}} */
 
-/* {{{ Close directory connection identified by the dir_handle */
+/* {{{ proto void closedir([resource dir_handle])
+   Close directory connection identified by the dir_handle */
 PHP_FUNCTION(closedir)
 {
-	zval *id = NULL, *myself;
+	zval *id = NULL, *tmp, *myself;
 	php_stream *dirp;
 	zend_resource *res;
 
 	FETCH_DIRP();
 
 	if (!(dirp->flags & PHP_STREAM_FLAG_IS_DIR)) {
-		zend_argument_type_error(1, "must be a valid Directory resource");
-		RETURN_THROWS();
+		php_error_docref(NULL, E_WARNING, "%d is not a valid Directory resource", dirp->res->handle);
+		RETURN_FALSE;
 	}
 
 	res = dirp->res;
@@ -269,7 +280,8 @@ PHP_FUNCTION(closedir)
 /* }}} */
 
 #if defined(HAVE_CHROOT) && !defined(ZTS) && ENABLE_CHROOT_FUNC
-/* {{{ Change root directory */
+/* {{{ proto bool chroot(string directory)
+   Change root directory */
 PHP_FUNCTION(chroot)
 {
 	char *str;
@@ -278,7 +290,7 @@ PHP_FUNCTION(chroot)
 
 	ZEND_PARSE_PARAMETERS_START(1, 1)
 		Z_PARAM_PATH(str, str_len)
-	ZEND_PARSE_PARAMETERS_END();
+	ZEND_PARSE_PARAMETERS_END_EX(RETURN_FALSE);
 
 	ret = chroot(str);
 	if (ret != 0) {
@@ -300,7 +312,8 @@ PHP_FUNCTION(chroot)
 /* }}} */
 #endif
 
-/* {{{ Change the current directory */
+/* {{{ proto bool chdir(string directory)
+   Change the current directory */
 PHP_FUNCTION(chdir)
 {
 	char *str;
@@ -309,7 +322,7 @@ PHP_FUNCTION(chdir)
 
 	ZEND_PARSE_PARAMETERS_START(1, 1)
 		Z_PARAM_PATH(str, str_len)
-	ZEND_PARSE_PARAMETERS_END();
+	ZEND_PARSE_PARAMETERS_END_EX(RETURN_FALSE);
 
 	if (php_check_open_basedir(str)) {
 		RETURN_FALSE;
@@ -321,12 +334,12 @@ PHP_FUNCTION(chdir)
 		RETURN_FALSE;
 	}
 
-	if (BG(CurrentStatFile) && !IS_ABSOLUTE_PATH(ZSTR_VAL(BG(CurrentStatFile)), ZSTR_LEN(BG(CurrentStatFile)))) {
-		zend_string_release(BG(CurrentStatFile));
+	if (BG(CurrentStatFile) && !IS_ABSOLUTE_PATH(BG(CurrentStatFile), strlen(BG(CurrentStatFile)))) {
+		efree(BG(CurrentStatFile));
 		BG(CurrentStatFile) = NULL;
 	}
-	if (BG(CurrentLStatFile) && !IS_ABSOLUTE_PATH(ZSTR_VAL(BG(CurrentLStatFile)), ZSTR_LEN(BG(CurrentLStatFile)))) {
-		zend_string_release(BG(CurrentLStatFile));
+	if (BG(CurrentLStatFile) && !IS_ABSOLUTE_PATH(BG(CurrentLStatFile), strlen(BG(CurrentLStatFile)))) {
+		efree(BG(CurrentLStatFile));
 		BG(CurrentLStatFile) = NULL;
 	}
 
@@ -334,13 +347,16 @@ PHP_FUNCTION(chdir)
 }
 /* }}} */
 
-/* {{{ Gets the current directory */
+/* {{{ proto mixed getcwd(void)
+   Gets the current directory */
 PHP_FUNCTION(getcwd)
 {
 	char path[MAXPATHLEN];
 	char *ret=NULL;
 
-	ZEND_PARSE_PARAMETERS_NONE();
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 
 #if HAVE_GETCWD
 	ret = VCWD_GETCWD(path, MAXPATHLEN);
@@ -356,35 +372,37 @@ PHP_FUNCTION(getcwd)
 }
 /* }}} */
 
-/* {{{ Rewind dir_handle back to the start */
+/* {{{ proto void rewinddir([resource dir_handle])
+   Rewind dir_handle back to the start */
 PHP_FUNCTION(rewinddir)
 {
-	zval *id = NULL, *myself;
+	zval *id = NULL, *tmp, *myself;
 	php_stream *dirp;
 
 	FETCH_DIRP();
 
 	if (!(dirp->flags & PHP_STREAM_FLAG_IS_DIR)) {
-		zend_argument_type_error(1, "must be a valid Directory resource");
-		RETURN_THROWS();
+		php_error_docref(NULL, E_WARNING, "%d is not a valid Directory resource", dirp->res->handle);
+		RETURN_FALSE;
 	}
 
 	php_stream_rewinddir(dirp);
 }
 /* }}} */
 
-/* {{{ Read directory entry from dir_handle */
-PHP_FUNCTION(readdir)
+/* {{{ proto string readdir([resource dir_handle])
+   Read directory entry from dir_handle */
+PHP_NAMED_FUNCTION(php_if_readdir)
 {
-	zval *id = NULL, *myself;
+	zval *id = NULL, *tmp, *myself;
 	php_stream *dirp;
 	php_stream_dirent entry;
 
 	FETCH_DIRP();
 
 	if (!(dirp->flags & PHP_STREAM_FLAG_IS_DIR)) {
-		zend_argument_type_error(1, "must be a valid Directory resource");
-		RETURN_THROWS();
+		php_error_docref(NULL, E_WARNING, "%d is not a valid Directory resource", dirp->res->handle);
+		RETURN_FALSE;
 	}
 
 	if (php_stream_readdir(dirp, &entry)) {
@@ -395,7 +413,8 @@ PHP_FUNCTION(readdir)
 /* }}} */
 
 #ifdef HAVE_GLOB
-/* {{{ Find pathnames matching a pattern */
+/* {{{ proto array glob(string pattern [, int flags])
+   Find pathnames matching a pattern */
 PHP_FUNCTION(glob)
 {
 	size_t cwd_skip = 0;
@@ -410,8 +429,7 @@ PHP_FUNCTION(glob)
 	glob_t globbuf;
 	size_t n;
 	int ret;
-	bool basedir_limit = 0;
-	zval tmp;
+	zend_bool basedir_limit = 0;
 
 	ZEND_PARSE_PARAMETERS_START(1, 2)
 		Z_PARAM_PATH(pattern, pattern_len)
@@ -515,8 +533,7 @@ no_results:
 				continue;
 			}
 		}
-		ZVAL_STRING(&tmp, globbuf.gl_pathv[n]+cwd_skip);
-		zend_hash_next_index_insert_new(Z_ARRVAL_P(return_value), &tmp);
+		add_next_index_string(return_value, globbuf.gl_pathv[n]+cwd_skip);
 	}
 
 	globfree(&globbuf);
@@ -529,12 +546,13 @@ no_results:
 /* }}} */
 #endif
 
-/* {{{ List files & directories inside the specified path */
+/* {{{ proto array scandir(string dir [, int sorting_order [, resource context]])
+   List files & directories inside the specified path */
 PHP_FUNCTION(scandir)
 {
 	char *dirn;
 	size_t dirn_len;
-	zend_long flags = PHP_SCANDIR_SORT_ASCENDING;
+	zend_long flags = 0;
 	zend_string **namelist;
 	int n, i;
 	zval *zcontext = NULL;
@@ -544,12 +562,12 @@ PHP_FUNCTION(scandir)
 		Z_PARAM_PATH(dirn, dirn_len)
 		Z_PARAM_OPTIONAL
 		Z_PARAM_LONG(flags)
-		Z_PARAM_RESOURCE_OR_NULL(zcontext)
+		Z_PARAM_RESOURCE(zcontext)
 	ZEND_PARSE_PARAMETERS_END();
 
 	if (dirn_len < 1) {
-		zend_argument_value_error(1, "cannot be empty");
-		RETURN_THROWS();
+		php_error_docref(NULL, E_WARNING, "Directory name cannot be empty");
+		RETURN_FALSE;
 	}
 
 	if (zcontext) {

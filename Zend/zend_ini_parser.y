@@ -32,6 +32,8 @@
 #include "win32/syslog.h"
 #endif
 
+#define YYSTYPE zval
+
 int ini_parse(void);
 
 #define ZEND_INI_PARSER_CB	(CG(ini_parser_param))->ini_parser_cb
@@ -60,7 +62,8 @@ static int get_int_val(zval *op) {
 	}
 }
 
-/* {{{ zend_ini_do_op() */
+/* {{{ zend_ini_do_op()
+*/
 static void zend_ini_do_op(char type, zval *result, zval *op1, zval *op2)
 {
 	int i_result;
@@ -97,7 +100,8 @@ static void zend_ini_do_op(char type, zval *result, zval *op1, zval *op2)
 }
 /* }}} */
 
-/* {{{ zend_ini_init_string() */
+/* {{{ zend_ini_init_string()
+*/
 static void zend_ini_init_string(zval *result)
 {
 	if (ZEND_SYSTEM_INI) {
@@ -108,7 +112,8 @@ static void zend_ini_init_string(zval *result)
 }
 /* }}} */
 
-/* {{{ zend_ini_add_string() */
+/* {{{ zend_ini_add_string()
+*/
 static void zend_ini_add_string(zval *result, zval *op1, zval *op2)
 {
 	int length, op1_len;
@@ -136,7 +141,8 @@ static void zend_ini_add_string(zval *result, zval *op1, zval *op2)
 }
 /* }}} */
 
-/* {{{ zend_ini_get_constant() */
+/* {{{ zend_ini_get_constant()
+*/
 static void zend_ini_get_constant(zval *result, zval *name)
 {
 	zval *c, tmp;
@@ -163,7 +169,8 @@ static void zend_ini_get_constant(zval *result, zval *name)
 }
 /* }}} */
 
-/* {{{ zend_ini_get_var() */
+/* {{{ zend_ini_get_var()
+*/
 static void zend_ini_get_var(zval *result, zval *name)
 {
 	zval *curval;
@@ -182,7 +189,8 @@ static void zend_ini_get_var(zval *result, zval *name)
 }
 /* }}} */
 
-/* {{{ ini_error() */
+/* {{{ ini_error()
+*/
 static ZEND_COLD void ini_error(const char *msg)
 {
 	char *error_buf;
@@ -211,8 +219,9 @@ static ZEND_COLD void ini_error(const char *msg)
 }
 /* }}} */
 
-/* {{{ zend_parse_ini_file() */
-ZEND_API zend_result zend_parse_ini_file(zend_file_handle *fh, bool unbuffered_errors, int scanner_mode, zend_ini_parser_cb_t ini_parser_cb, void *arg)
+/* {{{ zend_parse_ini_file()
+*/
+ZEND_API int zend_parse_ini_file(zend_file_handle *fh, zend_bool unbuffered_errors, int scanner_mode, zend_ini_parser_cb_t ini_parser_cb, void *arg)
 {
 	int retval;
 	zend_ini_parser_param ini_parser_param;
@@ -227,6 +236,7 @@ ZEND_API zend_result zend_parse_ini_file(zend_file_handle *fh, bool unbuffered_e
 
 	CG(ini_parser_unbuffered_errors) = unbuffered_errors;
 	retval = ini_parse();
+	zend_file_handle_dtor(fh);
 
 	shutdown_ini_scanner();
 
@@ -238,8 +248,9 @@ ZEND_API zend_result zend_parse_ini_file(zend_file_handle *fh, bool unbuffered_e
 }
 /* }}} */
 
-/* {{{ zend_parse_ini_string() */
-ZEND_API zend_result zend_parse_ini_string(char *str, bool unbuffered_errors, int scanner_mode, zend_ini_parser_cb_t ini_parser_cb, void *arg)
+/* {{{ zend_parse_ini_string()
+*/
+ZEND_API int zend_parse_ini_string(char *str, zend_bool unbuffered_errors, int scanner_mode, zend_ini_parser_cb_t ini_parser_cb, void *arg)
 {
 	int retval;
 	zend_ini_parser_param ini_parser_param;
@@ -265,7 +276,8 @@ ZEND_API zend_result zend_parse_ini_string(char *str, bool unbuffered_errors, in
 }
 /* }}} */
 
-/* {{{ zval_ini_dtor() */
+/* {{{ zval_ini_dtor()
+*/
 static void zval_ini_dtor(zval *zv)
 {
 	if (Z_TYPE_P(zv) == IS_STRING) {
@@ -277,9 +289,7 @@ static void zval_ini_dtor(zval *zv)
 %}
 
 %expect 0
-%define api.prefix {ini_}
 %define api.pure full
-%define api.value.type {zval}
 %define parse.error verbose
 
 %token END 0 "end of file"
@@ -300,7 +310,7 @@ static void zval_ini_dtor(zval *zv)
 %token END_OF_LINE
 %token '=' ':' ',' '.' '"' '\'' '^' '+' '-' '/' '*' '%' '$' '~' '<' '>' '?' '@' '{' '}'
 %left '|' '&' '^'
-%precedence '~' '!'
+%right '~' '!'
 
 %destructor { zval_ini_dtor(&$$); } TC_RAW TC_CONSTANT TC_NUMBER TC_STRING TC_WHITESPACE TC_LABEL TC_OFFSET TC_VARNAME BOOL_TRUE BOOL_FALSE NULL_NULL cfg_var_ref constant_literal constant_string encapsed_list expr option_offset section_string_or_value string_or_value var_string_list var_string_list_section
 
@@ -308,7 +318,7 @@ static void zval_ini_dtor(zval *zv)
 
 statement_list:
 		statement_list statement
-	|	%empty
+	|	/* empty */
 ;
 
 statement:
@@ -342,7 +352,7 @@ statement:
 
 section_string_or_value:
 		var_string_list_section			{ $$ = $1; }
-	|	%empty						{ zend_ini_init_string(&$$); }
+	|	/* empty */						{ zend_ini_init_string(&$$); }
 ;
 
 string_or_value:
@@ -355,13 +365,13 @@ string_or_value:
 
 option_offset:
 		var_string_list					{ $$ = $1; }
-	|	%empty						{ zend_ini_init_string(&$$); }
+	|	/* empty */						{ zend_ini_init_string(&$$); }
 ;
 
 encapsed_list:
 		encapsed_list cfg_var_ref		{ zend_ini_add_string(&$$, &$1, &$2); zend_string_free(Z_STR($2)); }
 	|	encapsed_list TC_QUOTED_STRING	{ zend_ini_add_string(&$$, &$1, &$2); zend_string_free(Z_STR($2)); }
-	|	%empty						{ zend_ini_init_string(&$$); }
+	|	/* empty */						{ zend_ini_init_string(&$$); }
 ;
 
 var_string_list_section:

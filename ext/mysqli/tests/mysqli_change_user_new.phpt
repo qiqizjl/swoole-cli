@@ -1,9 +1,9 @@
 --TEST--
 mysqli_change_user(), MySQL 5.6+
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 
 if (!$link = my_mysqli_connect($host, $user, $passwd, $db, $port, $socket))
@@ -12,9 +12,6 @@ if (!$link = my_mysqli_connect($host, $user, $passwd, $db, $port, $socket))
 
 if (mysqli_get_server_version($link) < 50600)
     die("SKIP For MySQL >= 5.6.0");
-
-if (mysqli_get_server_version($link) >= 10_00_00)
-    die("SKIP Not applicable for MariaDB");
 ?>
 --FILE--
 <?php

@@ -1,7 +1,5 @@
 --TEST--
 Bug #78793: Use-after-free in exif parsing under memory sanitizer
---EXTENSIONS--
-exif
 --FILE--
 <?php
 $f = "ext/exif/tests/bug77950.tiff";

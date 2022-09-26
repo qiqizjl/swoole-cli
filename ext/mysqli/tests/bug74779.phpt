@@ -1,9 +1,8 @@
 --TEST--
 Bug #74779 (x() and y() truncating floats to integers)
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
 require_once('skipifconnectfailure.inc');
 if (!setlocale(LC_NUMERIC, "de_DE", "de_DE.UTF-8", "de-DE")) die('skip locale not available');
 ?>
@@ -39,5 +38,5 @@ mysqli_close($link);
 --EXPECT--
 array(1) {
   ["ST_Y(Point(56.7, 53.34))"]=>
-  float(53.34)
+  float(53,34)
 }

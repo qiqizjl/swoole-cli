@@ -1,9 +1,9 @@
 --TEST--
 mysqli_poll() & INSERT SELECT
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('connect.inc');
 require_once('skipifconnectfailure.inc');
 
@@ -119,7 +119,7 @@ if (!$IS_MYSQLND)
                 $links[$thread_id]['query'], $saved_errors[$thread_id]);
             if ($saved_errors[$thread_id] != mysqli_errno($link['link'])) {
                 printf("[004] Error state not saved for query '%s', %d != %d\n", $link['query'],
-                    $saved_errors[$thread_id], mysqli_errno($link['link']));
+                        $saved_errors[$thread_id], mysqli_errno($link['link']));
             }
         }
 

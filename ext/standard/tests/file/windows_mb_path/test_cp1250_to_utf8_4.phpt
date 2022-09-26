@@ -38,6 +38,7 @@ var_dump(rmdir($subpath));
 remove_data("dir_cp1250");
 
 ?>
+===DONE===
 --EXPECTF--
 bool(true)
 bool(true)
@@ -49,3 +50,4 @@ bool(true)
 string(%d) "%s\Árvíztűrő tükörfúrógép42\Árvíztűrő tükörfúrógép4"
 Active code page: %d
 bool(true)
+===DONE===

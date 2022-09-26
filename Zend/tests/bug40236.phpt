@@ -2,6 +2,7 @@
 Bug #40236 (php -a function allocation eats memory)
 --SKIPIF--
 <?php
+if (php_sapi_name() != "cli") die("skip CLI only");
 if (extension_loaded("readline")) die("skip Test doesn't support readline");
 ?>
 --FILE--
@@ -10,5 +11,7 @@ $php = getenv('TEST_PHP_EXECUTABLE');
 $cmd = "\"$php\" -n -d memory_limit=4M -a \"".__DIR__."\"/bug40236.inc";
 echo `$cmd`;
 ?>
---EXPECT--
-Interactive shell (-a) requires the readline extension.
+--EXPECTF--
+Interactive %s
+
+ok

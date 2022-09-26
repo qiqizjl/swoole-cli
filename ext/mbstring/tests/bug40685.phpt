@@ -1,7 +1,7 @@
 --TEST--
 Bug #40685 (mb_decode_numericentity() removes '&' in the string)
---EXTENSIONS--
-mbstring
+--SKIPIF--
+<?php extension_loaded('mbstring') or die('skip mbstring not available'); ?>
 --FILE--
 <?php
 $map = array(0, 0x10FFFF, 0, 0xFFFFFF);

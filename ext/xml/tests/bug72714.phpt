@@ -1,7 +1,9 @@
 --TEST--
 Bug #72714 (_xml_startElementHandler() segmentation fault)
---EXTENSIONS--
-xml
+--SKIPIF--
+<?php
+if (!extension_loaded('xml')) die('skip xml extension not available');
+?>
 --FILE--
 <?php
 function startElement($parser, $name, $attribs) {
@@ -25,7 +27,9 @@ function parse($tagstart) {
 parse(3015809298423721);
 parse(20);
 ?>
+===DONE===
 --EXPECTF--
-Warning: xml_parser_set_option(): tagstart ignored, because it is out of range in %s on line %d
+Notice: xml_parser_set_option(): tagstart ignored, because it is out of range in %s%ebug72714.php on line %d
 string(9) "NS1:TOTAL"
 string(0) ""
+===DONE===

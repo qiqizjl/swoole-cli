@@ -1,9 +1,8 @@
 --TEST--
 Bug #49422 (mysqlnd: mysqli_real_connect() and LOAD DATA INFILE crash)
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
 require_once('skipifconnectfailure.inc');
 
 $link = mysqli_init();
@@ -68,7 +67,7 @@ mysqli.max_persistent=1
             mysqlnd makes a connection created through mysql_init()/mysqli_real_connect() always a 'persistent' one.
             At this point 'persistent' is not to be confused with what a user calls a 'persistent' - in this case
             'persistent' means that mysqlnd uses malloc() instead of emalloc(). nothing else. ext/mysqli will
-            not consider it as a 'persistent' connection in a user sense, ext/mysqli will not apply max_persistent etc.
+            not consider it as a 'persistent' connection in a user sense, ext/mysqli will not appy max_persistent etc.
             Its only about malloc() vs. emalloc().
 
             However, the bug is about malloc() and efree(). You can make make mysqlnd use malloc() by either using
@@ -107,7 +106,7 @@ mysqli.max_persistent=1
 ?>
 --CLEAN--
 <?php
-	require_once("clean_table.inc");
+    require_once("clean_table.inc");
 ?>
 --EXPECT--
 array(2) {

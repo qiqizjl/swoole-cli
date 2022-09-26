@@ -1,9 +1,9 @@
 --TEST--
 mysqli_ssl_set() - test is a stub!
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 if (!function_exists('mysqli_ssl_set'))
     die("skip function not available");
@@ -11,6 +11,27 @@ if (!function_exists('mysqli_ssl_set'))
 --FILE--
 <?php
     require_once("connect.inc");
+
+    $tmp    = NULL;
+    $link   = NULL;
+
+    if (!is_null($tmp = @mysqli_ssl_set()))
+        printf("[001] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
+    if (!is_null($tmp = @mysqli_ssl_set($link)))
+        printf("[002] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
+    if (!is_null($tmp = @mysqli_ssl_set($link, $link)))
+        printf("[003] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
+    if (!is_null($tmp = @mysqli_ssl_set($link, $link, $link)))
+        printf("[004] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
+    if (!is_null($tmp = @mysqli_ssl_set($link, $link, $link, $link)))
+        printf("[005] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
+    if (!is_null($tmp = @mysqli_ssl_set($link, $link, $link, $link, $link)))
+        printf("[006] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
 
     /*
     This function always returns TRUE value.

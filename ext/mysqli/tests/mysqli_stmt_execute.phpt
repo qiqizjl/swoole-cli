@@ -1,9 +1,9 @@
 --TEST--
 mysqli_stmt_execute()
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 if (!$link = my_mysqli_connect($host, $user, $passwd, $db, $port, $socket)) {
     die(sprintf('skip Cannot connect to MySQL, [%d] %s.', mysqli_connect_errno(), mysqli_connect_error()));
@@ -16,27 +16,30 @@ if (mysqli_get_server_version($link) <= 40100) {
 <?php
     require_once("connect.inc");
 
+    $tmp    = NULL;
+    $link   = NULL;
+
+    if (!is_null($tmp = @mysqli_stmt_execute()))
+        printf("[001] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
+    if (!is_null($tmp = @mysqli_stmt_execute($link)))
+        printf("[002] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
     require('table.inc');
 
     if (!$stmt = mysqli_stmt_init($link))
         printf("[003] [%d] %s\n", mysqli_errno($link), mysqli_error($link));
 
     // stmt object status test
-    try {
-        mysqli_stmt_execute($stmt);
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    if (false !== ($tmp = mysqli_stmt_execute($stmt)))
+        printf("[004] Expecting false, got %s/%s\n", gettype($tmp), $tmp);
 
     if (mysqli_stmt_prepare($stmt, "SELECT i_do_not_exist_believe_me FROM test ORDER BY id"))
         printf("[005] Statement should have failed!\n");
 
     // stmt object status test
-    try {
-        mysqli_stmt_execute($stmt);
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    if (false !== ($tmp = mysqli_stmt_execute($stmt)))
+        printf("[006] Expecting false, got %s/%s\n", gettype($tmp), $tmp);
 
     if (!mysqli_stmt_prepare($stmt, "SELECT id FROM test ORDER BY id LIMIT 1"))
         printf("[007] [%d] %s\n", mysqli_stmt_errno($stmt), mysqli_stmt_error($stmt));
@@ -123,11 +126,8 @@ if (mysqli_get_server_version($link) <= 40100) {
 
     mysqli_stmt_close($stmt);
 
-    try {
-        mysqli_stmt_execute($stmt);
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    if (false !== ($tmp = mysqli_stmt_execute($stmt)))
+        printf("[028] Expecting false, got %s/%s\n", gettype($tmp), $tmp);
 
     mysqli_close($link);
     print "done!";
@@ -136,11 +136,15 @@ if (mysqli_get_server_version($link) <= 40100) {
 <?php
     require_once("clean_table.inc");
 ?>
---EXPECT--
-mysqli_stmt object is not fully initialized
-mysqli_stmt object is not fully initialized
+--EXPECTF--
+Warning: mysqli_stmt_execute(): invalid object or resource mysqli_stmt
+ in %s on line %d
+
+Warning: mysqli_stmt_execute(): invalid object or resource mysqli_stmt
+ in %s on line %d
 bool(true)
 bool(true)
 [027] Expecting boolean/false, got boolean/1
-mysqli_stmt object is already closed
+
+Warning: mysqli_stmt_execute(): Couldn't fetch mysqli_stmt in %s on line %d
 done!

@@ -1,7 +1,7 @@
 --TEST--
 Bug #26976 (Can not access array elements using array indices)
---EXTENSIONS--
-simplexml
+--SKIPIF--
+<?php if (!extension_loaded("simplexml")) print "skip simplexml extension is not loaded"; ?>
 --FILE--
 <?php
 

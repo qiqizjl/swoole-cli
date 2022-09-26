@@ -1,9 +1,9 @@
 --TEST--
 Interface of the class mysqli_stmt
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+    require_once('skipif.inc');
+    require_once('skipifemb.inc');
     require_once('skipifconnectfailure.inc');
 ?>
 --FILE--
@@ -81,21 +81,12 @@ mysqli
 
 printf("\nMagic, magic properties:\n");
 
-try {
-    mysqli_stmt_affected_rows($stmt);
-} catch (Error $exception) {
-    echo $exception->getMessage() . "\n";
-}
+assert(mysqli_stmt_affected_rows($stmt) === $stmt->affected_rows);
+printf("stmt->affected_rows = '%s'\n", $stmt->affected_rows);
 
-try {
-    $stmt->affected_rows;
-} catch (Error $exception) {
-    echo $exception->getMessage() . "\n";
-}
-
-if (!$stmt->prepare("INSERT INTO test(id, label) VALUES (100, 'z')") || !$stmt->execute()) {
-    printf("[001] [%d] %s\n", $stmt->errno, $stmt->error);
-}
+if (!$stmt->prepare("INSERT INTO test(id, label) VALUES (100, 'z')") ||
+!$stmt->execute())
+printf("[001] [%d] %s\n", $stmt->errno, $stmt->error);
 
 assert(mysqli_stmt_affected_rows($stmt) === $stmt->affected_rows);
 printf("stmt->affected_rows = '%s'\n", $stmt->affected_rows);
@@ -132,6 +123,16 @@ printf("stmt->unknown = '%s'\n", @$stmt->unknown);
 @$stmt->unknown = 13;
 printf("stmt->unknown = '%s'\n", @$stmt->unknown);
 
+printf("\nPrepare using the constructor:\n");
+$stmt = new mysqli_stmt($link, 'SELECT id FROM test ORDER BY id');
+if (!$stmt->execute())
+printf("[002] [%d] %s\n", $stmt->errno, $stmt->error);
+$stmt->close();
+
+$obj = new stdClass();
+if (!is_object($stmt = new mysqli_stmt($link, $obj)))
+printf("[003] Expecting NULL got %s/%s\n", gettype($stmt), $stmt);
+
 print "done!";
 ?>
 --EXPECTF--
@@ -154,10 +155,26 @@ param_count
 sqlstate
 
 Object variables:
+affected_rows
+insert_id
+num_rows
+param_count
+field_count
+errno
+error
+error_list
+sqlstate
+id
 
 Magic, magic properties:
-mysqli_stmt object is not fully initialized
-Property access is not allowed yet
+
+Warning: mysqli_stmt_affected_rows(): invalid object or resource mysqli_stmt
+ in %s on line %d
+
+Warning: main(): Property access is not allowed yet in %s on line %d
+
+Warning: main(): Property access is not allowed yet in %s on line %d
+stmt->affected_rows = ''
 stmt->affected_rows = '1'
 stmt->errno = '0'
 stmt->error = ''
@@ -174,4 +191,8 @@ stmt->sqlstate = '00000'
 Access to undefined properties:
 stmt->unknown = ''
 stmt->unknown = '13'
+
+Prepare using the constructor:
+
+Warning: mysqli_stmt::__construct() expects parameter 2 to be string, object given in %s on line %d
 done!

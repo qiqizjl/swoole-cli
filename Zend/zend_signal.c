@@ -7,7 +7,7 @@
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
   | available through the world-wide-web at the following url:           |
-  | https://www.php.net/license/3_01.txt                                 |
+  | http://www.php.net/license/3_01.txt                                  |
   | If you did not receive a copy of the PHP license and are unable to   |
   | obtain it through the world-wide-web, please send a note to          |
   | license@php.net so we can mail you a copy immediately.               |
@@ -63,7 +63,7 @@ static void zend_signal_handler(int signo, siginfo_t *siginfo, void *context);
 static int zend_signal_register(int signo, void (*handler)(int, siginfo_t*, void*));
 
 #if defined(__CYGWIN__) || defined(__PASE__)
-/* Matches zend_execute_API.c; these platforms don't support ITIMER_PROF. */
+/* Matches zend_excute_API.c; these platforms don't support ITIMER_PROF. */
 #define TIMEOUT_SIG SIGALRM
 #else
 #define TIMEOUT_SIG SIGPROF
@@ -118,7 +118,7 @@ void zend_signal_handler_defer(int signo, siginfo_t *siginfo, void *context)
 		} else { /* delay signal handling */
 			SIGG(blocked) = 1; /* signal is blocked */
 
-			if ((queue = SIGG(pavail))) { /* if none available it's simply forgotten */
+			if ((queue = SIGG(pavail))) { /* if none available it's simply forgotton */
 				SIGG(pavail) = queue->next;
 				queue->zend_signal.signo = signo;
 				queue->zend_signal.siginfo = siginfo;
@@ -224,7 +224,7 @@ static void zend_signal_handler(int signo, siginfo_t *siginfo, void *context)
 
 /* {{{ zend_sigaction
  *  Register a signal handler that will be deferred in critical sections */
-ZEND_API void zend_sigaction(int signo, const struct sigaction *act, struct sigaction *oldact)
+ZEND_API int zend_sigaction(int signo, const struct sigaction *act, struct sigaction *oldact)
 {
 	struct sigaction sa;
 	sigset_t sigset;
@@ -260,12 +260,14 @@ ZEND_API void zend_sigaction(int signo, const struct sigaction *act, struct siga
 		sigaddset(&sigset, signo);
 		zend_sigprocmask(SIG_UNBLOCK, &sigset, NULL);
 	}
+
+	return SUCCESS;
 }
 /* }}} */
 
 /* {{{ zend_signal
  *  Register a signal handler that will be deferred in critical sections */
-ZEND_API void zend_signal(int signo, void (*handler)(int))
+ZEND_API int zend_signal(int signo, void (*handler)(int))
 {
 	struct sigaction sa;
 
@@ -274,7 +276,7 @@ ZEND_API void zend_signal(int signo, void (*handler)(int))
 	sa.sa_handler = handler;
 	sa.sa_mask    = global_sigmask;
 
-	zend_sigaction(signo, &sa, NULL);
+	return zend_sigaction(signo, &sa, NULL);
 }
 /* }}} */
 
@@ -282,7 +284,7 @@ ZEND_API void zend_signal(int signo, void (*handler)(int))
  *  Set a handler for a signal we want to defer.
  *  Previously set handler must have been saved before.
  */
-static zend_result zend_signal_register(int signo, void (*handler)(int, siginfo_t*, void*))
+static int zend_signal_register(int signo, void (*handler)(int, siginfo_t*, void*))
 {
 	struct sigaction sa;
 
@@ -329,7 +331,8 @@ void zend_signal_activate(void)
 	SIGG(depth)  = 0;
 } /* }}} */
 
-/* {{{ zend_signal_deactivate */
+/* {{{ zend_signal_deactivate
+ * */
 void zend_signal_deactivate(void)
 {
 	if (SIGG(check)) {

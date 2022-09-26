@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
    +----------------------------------------------------------------------+
-   | Authors: Xinchen Hui <laruence@php.net>                              |
+   | Authors: Xinchen Hui <xinchen.h@zend.com>                            |
    +----------------------------------------------------------------------+
 */
 
@@ -97,7 +97,7 @@ typedef enum _zend_cpu_feature {
 	/*intentionally don't support   = (1<<31 | ZEND_CPU_EDX_MASK)*/
 } zend_cpu_feature;
 
-void zend_cpu_startup(void);
+void zend_cpu_startup();
 ZEND_API int zend_cpu_supports(zend_cpu_feature feature);
 
 #ifndef __has_attribute
@@ -120,7 +120,7 @@ ZEND_API int zend_cpu_supports(zend_cpu_feature feature);
  * resolver functions should not depend on any external
  * functions */
 ZEND_NO_SANITIZE_ADDRESS
-static inline int zend_cpu_supports_sse2(void) {
+static zend_always_inline int zend_cpu_supports_sse2() {
 #if PHP_HAVE_BUILTIN_CPU_INIT
 	__builtin_cpu_init();
 #endif
@@ -128,7 +128,7 @@ static inline int zend_cpu_supports_sse2(void) {
 }
 
 ZEND_NO_SANITIZE_ADDRESS
-static inline int zend_cpu_supports_sse3(void) {
+static zend_always_inline int zend_cpu_supports_sse3() {
 #if PHP_HAVE_BUILTIN_CPU_INIT
 	__builtin_cpu_init();
 #endif
@@ -136,7 +136,7 @@ static inline int zend_cpu_supports_sse3(void) {
 }
 
 ZEND_NO_SANITIZE_ADDRESS
-static inline int zend_cpu_supports_ssse3(void) {
+static zend_always_inline int zend_cpu_supports_ssse3() {
 #if PHP_HAVE_BUILTIN_CPU_INIT
 	__builtin_cpu_init();
 #endif
@@ -144,7 +144,7 @@ static inline int zend_cpu_supports_ssse3(void) {
 }
 
 ZEND_NO_SANITIZE_ADDRESS
-static inline int zend_cpu_supports_sse41(void) {
+static zend_always_inline int zend_cpu_supports_sse41() {
 #if PHP_HAVE_BUILTIN_CPU_INIT
 	__builtin_cpu_init();
 #endif
@@ -152,7 +152,7 @@ static inline int zend_cpu_supports_sse41(void) {
 }
 
 ZEND_NO_SANITIZE_ADDRESS
-static inline int zend_cpu_supports_sse42(void) {
+static zend_always_inline int zend_cpu_supports_sse42() {
 #if PHP_HAVE_BUILTIN_CPU_INIT
 	__builtin_cpu_init();
 #endif
@@ -160,7 +160,7 @@ static inline int zend_cpu_supports_sse42(void) {
 }
 
 ZEND_NO_SANITIZE_ADDRESS
-static inline int zend_cpu_supports_avx(void) {
+static zend_always_inline int zend_cpu_supports_avx() {
 #if PHP_HAVE_BUILTIN_CPU_INIT
 	__builtin_cpu_init();
 #endif
@@ -168,7 +168,7 @@ static inline int zend_cpu_supports_avx(void) {
 }
 
 ZEND_NO_SANITIZE_ADDRESS
-static inline int zend_cpu_supports_avx2(void) {
+static zend_always_inline int zend_cpu_supports_avx2() {
 #if PHP_HAVE_BUILTIN_CPU_INIT
 	__builtin_cpu_init();
 #endif
@@ -176,48 +176,34 @@ static inline int zend_cpu_supports_avx2(void) {
 }
 #else
 
-static inline int zend_cpu_supports_sse2(void) {
+static zend_always_inline int zend_cpu_supports_sse2() {
 	return zend_cpu_supports(ZEND_CPU_FEATURE_SSE2);
 }
 
-static inline int zend_cpu_supports_sse3(void) {
+static zend_always_inline int zend_cpu_supports_sse3() {
 	return zend_cpu_supports(ZEND_CPU_FEATURE_SSE3);
 }
 
-static inline int zend_cpu_supports_ssse3(void) {
+static zend_always_inline int zend_cpu_supports_ssse3() {
 	return zend_cpu_supports(ZEND_CPU_FEATURE_SSSE3);
 }
 
-static inline int zend_cpu_supports_sse41(void) {
+static zend_always_inline int zend_cpu_supports_sse41() {
 	return zend_cpu_supports(ZEND_CPU_FEATURE_SSE41);
 }
 
-static inline int zend_cpu_supports_sse42(void) {
+static zend_always_inline int zend_cpu_supports_sse42() {
 	return zend_cpu_supports(ZEND_CPU_FEATURE_SSE42);
 }
 
-static inline int zend_cpu_supports_avx(void) {
+static zend_always_inline int zend_cpu_supports_avx() {
 	return zend_cpu_supports(ZEND_CPU_FEATURE_AVX);
 }
 
-static inline int zend_cpu_supports_avx2(void) {
+static zend_always_inline int zend_cpu_supports_avx2() {
 	return zend_cpu_supports(ZEND_CPU_FEATURE_AVX2);
 }
-#endif
 
-/* __builtin_cpu_supports has pclmul from gcc9 */
-#if PHP_HAVE_BUILTIN_CPU_SUPPORTS && (!defined(__GNUC__) || (ZEND_GCC_VERSION >= 9000))
-ZEND_NO_SANITIZE_ADDRESS
-static inline int zend_cpu_supports_pclmul() {
-#if PHP_HAVE_BUILTIN_CPU_INIT
-	__builtin_cpu_init();
-#endif
-	return __builtin_cpu_supports("pclmul");
-}
-#else
-static inline int zend_cpu_supports_pclmul(void) {
-	return zend_cpu_supports(ZEND_CPU_FEATURE_PCLMULQDQ);
-}
 #endif
 
 #endif

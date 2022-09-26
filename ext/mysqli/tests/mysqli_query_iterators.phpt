@@ -1,9 +1,9 @@
 --TEST--
 mysqli iterators
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 ?>
 --FILE--
@@ -23,17 +23,12 @@ require_once('skipifconnectfailure.inc');
             var_dump($row);
         }
         echo "======\n";
-
         foreach ($res as $row) {
             var_dump($row);
         }
         mysqli_free_result($res);
-        try {
-            foreach ($res as $row) {
-                $row;
-            }
-        } catch (Error $exception) {
-            echo $exception->getMessage() . "\n";
+        foreach ($res as $row) {
+            var_dump($row);
         }
     }
     echo "--- Testing USE_RESULT ---\n";
@@ -123,7 +118,8 @@ array(1) {
   ["id"]=>
   string(1) "6"
 }
-mysqli_result object is already closed
+
+Warning: main(): Couldn't fetch mysqli_result in %s on line %d
 --- Testing USE_RESULT ---
 array(1) {
   ["id"]=>

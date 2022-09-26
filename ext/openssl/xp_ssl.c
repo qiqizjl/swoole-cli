@@ -1,11 +1,13 @@
 /*
   +----------------------------------------------------------------------+
+  | PHP Version 7                                                        |
+  +----------------------------------------------------------------------+
   | Copyright (c) The PHP Group                                          |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
   | available through the world-wide-web at the following url:           |
-  | https://www.php.net/license/3_01.txt                                 |
+  | http://www.php.net/license/3_01.txt                                  |
   | If you did not receive a copy of the PHP license and are unable to   |
   | obtain it through the world-wide-web, please send a note to          |
   | license@php.net so we can mail you a copy immediately.               |
@@ -33,8 +35,11 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 #include <openssl/err.h>
+
+#if OPENSSL_VERSION_NUMBER >= 0x10002000L
 #include <openssl/bn.h>
 #include <openssl/dh.h>
+#endif
 
 #ifdef PHP_WIN32
 #include "win32/winutil.h"
@@ -77,7 +82,9 @@
 
 #ifndef OPENSSL_NO_TLSEXT
 #define HAVE_TLS_SNI 1
+#if OPENSSL_VERSION_NUMBER >= 0x10002000L
 #define HAVE_TLS_ALPN 1
+#endif
 #endif
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
@@ -115,8 +122,9 @@ static RSA *php_openssl_tmp_rsa_cb(SSL *s, int is_export, int keylength);
 #endif
 
 extern php_stream* php_openssl_get_stream_from_ssl_handle(const SSL *ssl);
-extern zend_string* php_openssl_x509_fingerprint(X509 *peer, const char *method, bool raw);
-extern int php_openssl_get_ssl_stream_data_index(void);
+extern zend_string* php_openssl_x509_fingerprint(X509 *peer, const char *method, zend_bool raw);
+extern int php_openssl_get_ssl_stream_data_index();
+extern int php_openssl_get_x509_list_id(void);
 static struct timeval php_openssl_subtract_timeval(struct timeval a, struct timeval b);
 static int php_openssl_compare_timeval(struct timeval a, struct timeval b);
 static ssize_t php_openssl_sockop_io(int read, php_stream *stream, char *buf, size_t count);
@@ -185,9 +193,9 @@ static int php_openssl_is_http_stream_talking_to_iis(php_stream *stream) /* {{{ 
 #define SERVER_GOOGLE "Server: GFE/"
 
 		ZEND_HASH_FOREACH_VAL(Z_ARRVAL(stream->wrapperdata), tmp) {
-			if (zend_string_equals_literal_ci(Z_STR_P(tmp), SERVER_MICROSOFT_IIS)) {
+			if (strncasecmp(Z_STRVAL_P(tmp), SERVER_MICROSOFT_IIS, sizeof(SERVER_MICROSOFT_IIS)-1) == 0) {
 				return 1;
-			} else if (zend_string_equals_literal_ci(Z_STR_P(tmp), SERVER_GOOGLE)) {
+			} else if (strncasecmp(Z_STRVAL_P(tmp), SERVER_GOOGLE, sizeof(SERVER_GOOGLE)-1) == 0) {
 				return 1;
 			}
 		} ZEND_HASH_FOREACH_END();
@@ -196,7 +204,7 @@ static int php_openssl_is_http_stream_talking_to_iis(php_stream *stream) /* {{{ 
 }
 /* }}} */
 
-static int php_openssl_handle_ssl_error(php_stream *stream, int nr_bytes, bool is_init) /* {{{ */
+static int php_openssl_handle_ssl_error(php_stream *stream, int nr_bytes, zend_bool is_init) /* {{{ */
 {
 	php_openssl_netstream_data_t *sslsock = (php_openssl_netstream_data_t*)stream->abstract;
 	int err = SSL_get_error(sslsock->ssl_handle, nr_bytes);
@@ -238,7 +246,8 @@ static int php_openssl_handle_ssl_error(php_stream *stream, int nr_bytes, bool i
 				break;
 			}
 
-			ZEND_FALLTHROUGH;
+
+			/* fall through */
 		default:
 			/* some other error */
 			ecode = ERR_get_error();
@@ -333,7 +342,7 @@ static int php_openssl_x509_fingerprint_cmp(X509 *peer, const char *method, cons
 	return result;
 }
 
-static bool php_openssl_x509_fingerprint_match(X509 *peer, zval *val)
+static zend_bool php_openssl_x509_fingerprint_match(X509 *peer, zval *val)
 {
 	if (Z_TYPE_P(val) == IS_STRING) {
 		const char *method = NULL;
@@ -377,7 +386,7 @@ static bool php_openssl_x509_fingerprint_match(X509 *peer, zval *val)
 	return 0;
 }
 
-static bool php_openssl_matches_wildcard_name(const char *subjectname, const char *certname) /* {{{ */
+static zend_bool php_openssl_matches_wildcard_name(const char *subjectname, const char *certname) /* {{{ */
 {
 	char *wildcard = NULL;
 	ptrdiff_t prefix_len;
@@ -412,7 +421,7 @@ static bool php_openssl_matches_wildcard_name(const char *subjectname, const cha
 }
 /* }}} */
 
-static bool php_openssl_matches_san_list(X509 *peer, const char *subject_name) /* {{{ */
+static zend_bool php_openssl_matches_san_list(X509 *peer, const char *subject_name) /* {{{ */
 {
 	int i, len;
 	unsigned char *cert_name = NULL;
@@ -472,11 +481,11 @@ static bool php_openssl_matches_san_list(X509 *peer, const char *subject_name) /
 }
 /* }}} */
 
-static bool php_openssl_matches_common_name(X509 *peer, const char *subject_name) /* {{{ */
+static zend_bool php_openssl_matches_common_name(X509 *peer, const char *subject_name) /* {{{ */
 {
 	char buf[1024];
 	X509_NAME *cert_name;
-	bool is_match = 0;
+	zend_bool is_match = 0;
 	int cert_name_len;
 
 	cert_name = X509_get_subject_name(peer);
@@ -539,7 +548,6 @@ static int php_openssl_apply_peer_verification_policy(SSL *ssl, X509 *peer, php_
 					break;
 				}
 				/* not allowed, so fall through */
-				ZEND_FALLTHROUGH;
 			default:
 				php_error_docref(NULL, E_WARNING,
 						"Could not verify peer: code:%d %s",
@@ -627,7 +635,7 @@ static int php_openssl_win_cert_verify_callback(X509_STORE_CTX *x509_store_ctx, 
 	php_stream *stream;
 	php_openssl_netstream_data_t *sslsock;
 	zval *val;
-	bool is_self_signed = 0;
+	zend_bool is_self_signed = 0;
 
 
 	stream = (php_stream*)arg;
@@ -865,6 +873,7 @@ static int php_openssl_enable_peer_verification(SSL_CTX *ctx, php_stream *stream
 	} else {
 #ifdef PHP_WIN32
 		SSL_CTX_set_cert_verify_callback(ctx, php_openssl_win_cert_verify_callback, (void *)stream);
+		SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
 #else
 		if (sslsock->is_client && !SSL_CTX_set_default_verify_paths(ctx)) {
 			php_error_docref(NULL, E_WARNING,
@@ -1100,7 +1109,7 @@ static void php_openssl_limit_handshake_reneg(const SSL *ssl) /* {{{ */
 
 			/* Closing the stream inside this callback would segfault! */
 			stream->flags |= PHP_STREAM_FLAG_NO_FCLOSE;
-			if (FAILURE == call_user_function(NULL, NULL, val, &retval, 1, &param)) {
+			if (FAILURE == call_user_function_ex(NULL, NULL, val, &retval, 1, &param, 0, NULL)) {
 				php_error(E_WARNING, "SSL: failed invoking reneg limit notification callback");
 			}
 			stream->flags ^= PHP_STREAM_FLAG_NO_FCLOSE;
@@ -1191,7 +1200,11 @@ static RSA *php_openssl_tmp_rsa_cb(SSL *s, int is_export, int keylength)
 
 static int php_openssl_set_server_dh_param(php_stream * stream, SSL_CTX *ctx) /* {{{ */
 {
-	zval *zdhpath = php_stream_context_get_option(PHP_STREAM_CONTEXT(stream), "ssl", "dh_param");
+	DH *dh;
+	BIO* bio;
+	zval *zdhpath;
+
+	zdhpath = php_stream_context_get_option(PHP_STREAM_CONTEXT(stream), "ssl", "dh_param");
 	if (zdhpath == NULL) {
 #if 0
 	/* Coming in OpenSSL 1.1 ... eventually we'll want to enable this
@@ -1206,44 +1219,28 @@ static int php_openssl_set_server_dh_param(php_stream * stream, SSL_CTX *ctx) /*
 		return FAILURE;
 	}
 
-	BIO *bio = BIO_new_file(Z_STRVAL_P(zdhpath), PHP_OPENSSL_BIO_MODE_R(PKCS7_BINARY));
+	bio = BIO_new_file(Z_STRVAL_P(zdhpath), PHP_OPENSSL_BIO_MODE_R(PKCS7_BINARY));
 
 	if (bio == NULL) {
-		php_error_docref(NULL, E_WARNING, "Invalid dh_param");
+		php_error_docref(NULL, E_WARNING, "invalid dh_param");
 		return FAILURE;
 	}
 
-#if PHP_OPENSSL_API_VERSION >= 0x30000
-	EVP_PKEY *pkey = PEM_read_bio_Parameters(bio, NULL);
-	BIO_free(bio);
-
-	if (pkey == NULL) {
-		php_error_docref(NULL, E_WARNING, "Failed reading DH params");
-		return FAILURE;
-	}
-
-	if (SSL_CTX_set0_tmp_dh_pkey(ctx, pkey) < 0) {
-		php_error_docref(NULL, E_WARNING, "Failed assigning DH params");
-		EVP_PKEY_free(pkey);
-		return FAILURE;
-	}
-#else
-	DH *dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
+	dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
 	BIO_free(bio);
 
 	if (dh == NULL) {
-		php_error_docref(NULL, E_WARNING, "Failed reading DH params");
+		php_error_docref(NULL, E_WARNING, "failed reading DH params");
 		return FAILURE;
 	}
 
 	if (SSL_CTX_set_tmp_dh(ctx, dh) < 0) {
-		php_error_docref(NULL, E_WARNING, "Failed assigning DH params");
+		php_error_docref(NULL, E_WARNING, "failed assigning DH params");
 		DH_free(dh);
 		return FAILURE;
 	}
 
 	DH_free(dh);
-#endif
 
 	return SUCCESS;
 }
@@ -1258,8 +1255,12 @@ static int php_openssl_set_server_ecdh_curve(php_stream *stream, SSL_CTX *ctx) /
 
 	zvcurve = php_stream_context_get_option(PHP_STREAM_CONTEXT(stream), "ssl", "ecdh_curve");
 	if (zvcurve == NULL) {
+#if OPENSSL_VERSION_NUMBER >= 0x10002000L
 		SSL_CTX_set_ecdh_auto(ctx, 1);
 		return SUCCESS;
+#else
+		curve_nid = NID_X9_62_prime256v1;
+#endif
 	} else {
 		if (!try_convert_to_string(zvcurve)) {
 			return FAILURE;
@@ -1267,14 +1268,14 @@ static int php_openssl_set_server_ecdh_curve(php_stream *stream, SSL_CTX *ctx) /
 
 		curve_nid = OBJ_sn2nid(Z_STRVAL_P(zvcurve));
 		if (curve_nid == NID_undef) {
-			php_error_docref(NULL, E_WARNING, "Invalid ecdh_curve specified");
+			php_error_docref(NULL, E_WARNING, "invalid ecdh_curve specified");
 			return FAILURE;
 		}
 	}
 
 	ecdh = EC_KEY_new_by_curve_name(curve_nid);
 	if (ecdh == NULL) {
-		php_error_docref(NULL, E_WARNING, "Failed generating ECDH curve");
+		php_error_docref(NULL, E_WARNING, "failed generating ECDH curve");
 		return FAILURE;
 	}
 
@@ -1362,7 +1363,7 @@ static SSL_CTX *php_openssl_create_sni_server_ctx(char *cert_path, char *key_pat
 
 	if (SSL_CTX_use_certificate_chain_file(ctx, cert_path) != 1) {
 		php_error_docref(NULL, E_WARNING,
-			"Failed setting local cert chain file `%s'; " \
+			"failed setting local cert chain file `%s'; " \
 			"check that your cafile/capath settings include " \
 			"details of your certificate and its issuer",
 			cert_path
@@ -1371,7 +1372,7 @@ static SSL_CTX *php_openssl_create_sni_server_ctx(char *cert_path, char *key_pat
 		return NULL;
 	} else if (SSL_CTX_use_PrivateKey_file(ctx, key_path, SSL_FILETYPE_PEM) != 1) {
 		php_error_docref(NULL, E_WARNING,
-			"Failed setting private key from file `%s'",
+			"failed setting private key from file `%s'",
 			key_path
 		);
 		SSL_CTX_free(ctx);
@@ -1451,7 +1452,7 @@ static int php_openssl_enable_server_sni(php_stream *stream, php_openssl_netstre
 			}
 			if (!VCWD_REALPATH(ZSTR_VAL(local_cert_str), resolved_cert_path_buff)) {
 				php_error_docref(NULL, E_WARNING,
-					"Failed setting local cert chain file `%s'; file not found",
+					"failed setting local cert chain file `%s'; file not found",
 					ZSTR_VAL(local_cert_str)
 				);
 				zend_string_release(local_cert_str);
@@ -1473,7 +1474,7 @@ static int php_openssl_enable_server_sni(php_stream *stream, php_openssl_netstre
 			}
 			if (!VCWD_REALPATH(ZSTR_VAL(local_pk_str), resolved_pk_path_buff)) {
 				php_error_docref(NULL, E_WARNING,
-					"Failed setting local private key file `%s'; file not found",
+					"failed setting local private key file `%s'; file not found",
 					ZSTR_VAL(local_pk_str)
 				);
 				zend_string_release(local_pk_str);
@@ -1487,7 +1488,7 @@ static int php_openssl_enable_server_sni(php_stream *stream, php_openssl_netstre
 			ctx = php_openssl_create_sni_server_ctx(resolved_path_buff, resolved_path_buff);
 		} else {
 			php_error_docref(NULL, E_WARNING,
-				"Failed setting local cert chain file `%s'; file not found",
+				"failed setting local cert chain file `%s'; file not found",
 				Z_STRVAL_P(current)
 			);
 			return FAILURE;
@@ -1639,11 +1640,6 @@ int php_openssl_setup_crypto(php_stream *stream,
 
 	ssl_ctx_options &= ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS;
 
-#ifdef SSL_OP_IGNORE_UNEXPECTED_EOF
-	/* Only for OpenSSL 3+ to keep OpenSSL 1.1.1 behavior */
-	ssl_ctx_options |= SSL_OP_IGNORE_UNEXPECTED_EOF;
-#endif
-
 	if (!GET_VER_OPT("disable_compression") || zend_is_true(val)) {
 		ssl_ctx_options |= SSL_OP_NO_COMPRESSION;
 	}
@@ -1768,9 +1764,9 @@ int php_openssl_setup_crypto(php_stream *stream,
 
 	if (cparam->inputs.session) {
 		if (cparam->inputs.session->ops != &php_openssl_socket_ops) {
-			php_error_docref(NULL, E_WARNING, "Supplied session stream must be an SSL enabled stream");
+			php_error_docref(NULL, E_WARNING, "supplied session stream must be an SSL enabled stream");
 		} else if (((php_openssl_netstream_data_t*)cparam->inputs.session->abstract)->ssl_handle == NULL) {
-			php_error_docref(NULL, E_WARNING, "Supplied SSL session stream is not initialized");
+			php_error_docref(NULL, E_WARNING, "supplied SSL session stream is not initialized");
 		} else {
 			SSL_copy_session_id(sslsock->ssl_handle, ((php_openssl_netstream_data_t*)cparam->inputs.session->abstract)->ssl_handle);
 		}
@@ -1780,21 +1776,61 @@ int php_openssl_setup_crypto(php_stream *stream,
 }
 /* }}} */
 
+static zend_array *php_openssl_capture_session_meta(SSL *ssl_handle) /* {{{ */
+{
+	zval meta_arr;
+	char *proto_str;
+	long proto = SSL_version(ssl_handle);
+	const SSL_CIPHER *cipher = SSL_get_current_cipher(ssl_handle);
+
+	switch (proto) {
+#ifdef HAVE_TLS13
+		case TLS1_3_VERSION:
+			proto_str = "TLSv1.3";
+			break;
+#endif
+#ifdef HAVE_TLS12
+		case TLS1_2_VERSION:
+			proto_str = "TLSv1.2";
+			break;
+#endif
+#ifdef HAVE_TLS11
+		case TLS1_1_VERSION:
+			proto_str = "TLSv1.1";
+			break;
+#endif
+		case TLS1_VERSION:
+			proto_str = "TLSv1";
+			break;
+#ifdef HAVE_SSL3
+		case SSL3_VERSION:
+			proto_str = "SSLv3";
+			break;
+#endif
+		default: proto_str = "UNKNOWN";
+	}
+
+	array_init(&meta_arr);
+	add_assoc_string(&meta_arr, "protocol", proto_str);
+	add_assoc_string(&meta_arr, "cipher_name", (char *) SSL_CIPHER_get_name(cipher));
+	add_assoc_long(&meta_arr, "cipher_bits", SSL_CIPHER_get_bits(cipher, NULL));
+	add_assoc_string(&meta_arr, "cipher_version", SSL_CIPHER_get_version(cipher));
+
+	return Z_ARR(meta_arr);
+}
+/* }}} */
+
 static int php_openssl_capture_peer_certs(php_stream *stream,
 		php_openssl_netstream_data_t *sslsock, X509 *peer_cert) /* {{{ */
 {
 	zval *val, zcert;
-	php_openssl_certificate_object *cert_object;
 	int cert_captured = 0;
 
 	if (NULL != (val = php_stream_context_get_option(PHP_STREAM_CONTEXT(stream),
 			"ssl", "capture_peer_cert")) &&
 		zend_is_true(val)
 	) {
-		object_init_ex(&zcert, php_openssl_certificate_ce);
-		cert_object = Z_OPENSSL_CERTIFICATE_P(&zcert);
-		cert_object->x509 = peer_cert;
-
+		ZVAL_RES(&zcert, zend_register_resource(peer_cert, php_openssl_get_x509_list_id()));
 		php_stream_context_set_option(PHP_STREAM_CONTEXT(stream), "ssl", "peer_certificate", &zcert);
 		zval_ptr_dtor(&zcert);
 		cert_captured = 1;
@@ -1815,10 +1851,7 @@ static int php_openssl_capture_peer_certs(php_stream *stream,
 
 			for (i = 0; i < sk_X509_num(chain); i++) {
 				X509 *mycert = X509_dup(sk_X509_value(chain, i));
-
-				object_init_ex(&zcert, php_openssl_certificate_ce);
-				cert_object = Z_OPENSSL_CERTIFICATE_P(&zcert);
-				cert_object->x509 = mycert;
+				ZVAL_RES(&zcert, zend_register_resource(mycert, php_openssl_get_x509_list_id()));
 				add_next_index_zval(&arr, &zcert);
 			}
 
@@ -1938,6 +1971,24 @@ static int php_openssl_enable_crypto(php_stream *stream,
 				n = -1;
 			} else {
 				sslsock->ssl_active = 1;
+
+				if (PHP_STREAM_CONTEXT(stream)) {
+					zval *val;
+					if (NULL != (val = php_stream_context_get_option(PHP_STREAM_CONTEXT(stream),
+						"ssl", "capture_session_meta"))
+					) {
+						 php_error(E_DEPRECATED,
+							"capture_session_meta is deprecated; its information is now available via stream_get_meta_data()"
+                        );
+					}
+
+					if (val && zend_is_true(val)) {
+						zval meta_arr;
+						ZVAL_ARR(&meta_arr, php_openssl_capture_session_meta(sslsock->ssl_handle));
+						php_stream_context_set_option(PHP_STREAM_CONTEXT(stream), "ssl", "session_meta", &meta_arr);
+						zval_ptr_dtor(&meta_arr);
+					}
+				}
 			}
 		} else if (errno == EAGAIN) {
 			n = 0;
@@ -2266,7 +2317,7 @@ static inline int php_openssl_tcp_sockop_accept(php_stream *stream, php_openssl_
 		php_stream_xport_param *xparam STREAMS_DC)  /* {{{ */
 {
 	int clisock;
-	bool nodelay = 0;
+	zend_bool nodelay = 0;
 	zval *tmpzval = NULL;
 
 	xparam->outputs.client = NULL;
@@ -2616,7 +2667,7 @@ php_stream *php_openssl_ssl_socket_factory(const char *proto, size_t protolen,
 	memset(sslsock, 0, sizeof(*sslsock));
 
 	sslsock->s.is_blocked = 1;
-	/* this timeout is used by standard stream funcs, therefore it should use the default value */
+	/* this timeout is used by standard stream funcs, therefor it should use the default value */
 #ifdef _WIN32
 	sslsock->s.timeout.tv_sec = (long)FG(default_socket_timeout);
 #else

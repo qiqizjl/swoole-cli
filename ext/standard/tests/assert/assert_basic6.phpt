@@ -1,40 +1,27 @@
 --TEST--
-assert() - Remove the assert callback
+assert() - basic - Test that bailout works
 --INI--
-assert.active=1
+assert.active = 1
+assert.warning = 1
+assert.callback = f1
+assert.quiet_eval = 1
+assert.bail = 0
 --FILE--
 <?php
-
-function f1()
+function f1($message)
 {
-    echo "foo\n";
+	echo "f1 called\n";
 }
 
-assert_options(ASSERT_CALLBACK, "f1");
-var_dump(assert_options(ASSERT_CALLBACK));
+//bail out on error
+var_dump($rao = assert_options(ASSERT_BAIL, 1));
+$sa = "0 != 0";
+var_dump($r2 = assert($sa, "0 is 0"));
+echo "If this is printed BAIL hasn't worked";
+--EXPECTF--
+int(0)
 
-try {
-    assert(false);
-} catch (AssertionError $exception) {
-    echo $exception->getMessage() . "\n";
-}
+Deprecated: assert(): Calling assert() with a string argument is deprecated in %s on line %d
+f1 called
 
-echo "\n";
-
-assert_options(ASSERT_CALLBACK, null);
-var_dump(assert_options(ASSERT_CALLBACK));
-
-try {
-    assert(false);
-} catch (AssertionError $exception) {
-    echo $exception->getMessage() . "\n";
-}
-
-?>
---EXPECT--
-string(2) "f1"
-foo
-assert(false)
-
-NULL
-assert(false)
+Warning: assert(): 0 is 0: "0 != 0" failed in %s on line 10

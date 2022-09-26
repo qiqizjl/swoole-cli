@@ -1,9 +1,9 @@
 --TEST--
 mysqli_stmt_get_result() - meta data
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 
 if (!function_exists('mysqli_stmt_get_result'))
@@ -182,46 +182,26 @@ if (!function_exists('mysqli_stmt_get_result'))
                 printf("[032] Expecting %s/%s got %s/%s\n",
                     gettype($pos), $pos, gettype($tmp), $tmp);
         } else {
-            try {
-                $tmp = @mysqli_field_seek($res, $pos);
-                if ($pos >= $num && $tmp !== false) {
-                    printf("[033] field_seek(%d) did not fail\n", $pos);
-                }
-            } catch (ValueError $e) { /* Suppress output because pos is RANDOM */}
 
-            try {
-                $tmp = @mysqli_field_seek($res_meta, $pos);
-                if ($pos >= $num && $tmp !== false) {
-                    printf("[034] field_seek(%d) did not fail\n", $pos);
-                }
-            } catch (ValueError $e) { /* Suppress output because pos is RANDOM */}
+            if (false !== @mysqli_field_seek($res, $pos))
+                printf("[033] field_seek(%d) did not fail\n", $pos);
+            if (false !== @mysqli_field_seek($res_meta, $pos))
+                printf("[034] field_seek(%d) did not fail\n", $pos);
         }
     }
 
     $res->free_result();
     mysqli_free_result($res_meta);
 
-    try {
-        mysqli_fetch_field($res);
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    var_dump(mysqli_fetch_field($res));
 
     mysqli_stmt_close($stmt);
 
-    try {
-        mysqli_fetch_field($res);
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    var_dump(mysqli_fetch_field($res));
 
     mysqli_close($link);
 
-    try {
-        mysqli_fetch_field($res);
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    var_dump(mysqli_fetch_field($res));
 
     print "done!";
 ?>
@@ -229,7 +209,7 @@ if (!function_exists('mysqli_stmt_get_result'))
 <?php
     require_once("clean_table.inc");
 ?>
---EXPECT--
+--EXPECTF--
 array(2) {
   ["id"]=>
   int(1)
@@ -245,7 +225,13 @@ _id
 _label
 _null
 _label_concat
-mysqli_result object is already closed
-mysqli_result object is already closed
-mysqli_result object is already closed
+
+Warning: mysqli_fetch_field(): Couldn't fetch mysqli_result in %s on line %d
+bool(false)
+
+Warning: mysqli_fetch_field(): Couldn't fetch mysqli_result in %s on line %d
+bool(false)
+
+Warning: mysqli_fetch_field(): Couldn't fetch mysqli_result in %s on line %d
+bool(false)
 done!

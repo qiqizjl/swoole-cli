@@ -4,7 +4,7 @@ SPL: Allow valid extension of SplFileObject::fscanf
 <?php
 
 class A extends SplFileObject {
-    public function fscanf($format, &...$vars): array|int|null {
+    public function fscanf($format, &...$vars) {
 
     }
 }

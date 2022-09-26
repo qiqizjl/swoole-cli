@@ -1,14 +1,23 @@
 --TEST--
 mysqli_fetch_row()
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 ?>
 --FILE--
 <?php
     require_once("connect.inc");
+
+    $tmp    = NULL;
+    $link   = NULL;
+
+    if (!is_null($tmp = @mysqli_fetch_row()))
+        printf("[001] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
+
+    if (!is_null($tmp = @mysqli_fetch_row($link)))
+        printf("[002] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
 
     require('table.inc');
     if (!$res = mysqli_query($link, "SELECT id, label, id AS _id FROM test ORDER BY id LIMIT 1")) {
@@ -23,11 +32,7 @@ require_once('skipifconnectfailure.inc');
 
     mysqli_free_result($res);
 
-    try {
-        mysqli_fetch_row($res);
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    var_dump(mysqli_fetch_row($res));
 
     mysqli_close($link);
     print "done!";
@@ -36,7 +41,7 @@ require_once('skipifconnectfailure.inc');
 <?php
     require_once("clean_table.inc");
 ?>
---EXPECT--
+--EXPECTF--
 [004]
 array(3) {
   [0]=>
@@ -48,5 +53,7 @@ array(3) {
 }
 [005]
 NULL
-mysqli_result object is already closed
+
+Warning: mysqli_fetch_row(): Couldn't fetch mysqli_result in %s on line %d
+bool(false)
 done!

@@ -1,9 +1,11 @@
 /*
    +----------------------------------------------------------------------+
+   | PHP Version 7                                                        |
+   +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
-   | https://www.php.net/license/3_01.txt                                 |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -44,59 +46,71 @@ static inline GregorianCalendar *fetch_greg(Calendar_object *co) {
 }
 
 static void _php_intlgregcal_constructor_body(
-    INTERNAL_FUNCTION_PARAMETERS, bool is_constructor, zend_error_handling *error_handling, bool *error_handling_replaced)
+    INTERNAL_FUNCTION_PARAMETERS, zend_bool is_constructor)
 {
 	zval		*tz_object	= NULL;
-	zval		args_a[6],
+	zval		args_a[6] = {0},
 				*args		= &args_a[0];
 	char		*locale		= NULL;
 	size_t			locale_len;
 	zend_long		largs[6];
 	UErrorCode	status		= U_ZERO_ERROR;
 	int			variant;
+  int zpp_flags = is_constructor ? ZEND_PARSE_PARAMS_THROW : 0;
 	intl_error_reset(NULL);
 
 	// parameter number validation / variant determination
 	if (ZEND_NUM_ARGS() > 6 ||
 			zend_get_parameters_array_ex(ZEND_NUM_ARGS(), args) == FAILURE) {
-		zend_argument_count_error("Too many arguments");
-		RETURN_THROWS();
+		intl_error_set(NULL, U_ILLEGAL_ARGUMENT_ERROR,
+			"intlgregcal_create_instance: too many arguments", 0);
+		if (!is_constructor) {
+			zval_ptr_dtor(return_value);
+			RETVAL_NULL();
+		}
+		return;
 	}
-
 	for (variant = ZEND_NUM_ARGS();
 		variant > 0 && Z_TYPE(args[variant - 1]) == IS_NULL;
 		variant--) {}
 	if (variant == 4) {
-		zend_argument_count_error("No variant with 4 arguments (excluding trailing NULLs)");
-		RETURN_THROWS();
+		intl_error_set(NULL, U_ILLEGAL_ARGUMENT_ERROR,
+			"intlgregcal_create_instance: no variant with 4 arguments "
+			"(excluding trailing NULLs)", 0);
+		if (!is_constructor) {
+			zval_ptr_dtor(return_value);
+			RETVAL_NULL();
+		}
+		return;
 	}
 
 	// argument parsing
 	if (variant <= 2) {
-		if (zend_parse_parameters(MIN(ZEND_NUM_ARGS(), 2),
+		if (zend_parse_parameters_ex(zpp_flags, MIN(ZEND_NUM_ARGS(), 2),
 				"|z!s!", &tz_object, &locale, &locale_len) == FAILURE) {
-			RETURN_THROWS();
+			intl_error_set(NULL, U_ILLEGAL_ARGUMENT_ERROR,
+				"intlgregcal_create_instance: bad arguments", 0);
+			if (!is_constructor) {
+				zval_ptr_dtor(return_value);
+				RETVAL_NULL();
+			}
+			return;
 		}
 	}
-	if (variant > 2 && zend_parse_parameters(ZEND_NUM_ARGS(),
+	if (variant > 2 && zend_parse_parameters_ex(zpp_flags, ZEND_NUM_ARGS(),
 			"lll|lll", &largs[0], &largs[1], &largs[2], &largs[3], &largs[4],
 			&largs[5]) == FAILURE) {
-		RETURN_THROWS();
-	}
-
-	if (error_handling != NULL) {
-		zend_replace_error_handling(EH_THROW, IntlException_ce_ptr, error_handling);
-		*error_handling_replaced = 1;
+		intl_error_set(NULL, U_ILLEGAL_ARGUMENT_ERROR,
+			"intlgregcal_create_instance: bad arguments", 0);
+		if (!is_constructor) {
+			zval_ptr_dtor(return_value);
+			RETVAL_NULL();
+		}
+		return;
 	}
 
 	// instantion of ICU object
-	Calendar_object *co = Z_INTL_CALENDAR_P(return_value);
 	GregorianCalendar *gcal = NULL;
-
-	if (co->ucal) {
-		zend_throw_error(NULL, "IntlGregorianCalendar object is already constructed");
-		RETURN_THROWS();
-	}
 
 	if (variant <= 2) {
 		// From timezone and locale (0 to 2 arguments)
@@ -118,7 +132,6 @@ static void _php_intlgregcal_constructor_body(
 
 		gcal = new GregorianCalendar(tz, Locale::createFromName(locale),
 			status);
-			// Should this throw?
 		if (U_FAILURE(status)) {
 			intl_error_set(NULL, status, "intlgregcal_create_instance: error "
 				"creating ICU GregorianCalendar from time zone and locale", 0);
@@ -136,9 +149,14 @@ static void _php_intlgregcal_constructor_body(
 		// From date/time (3, 5 or 6 arguments)
 		for (int i = 0; i < variant; i++) {
 			if (largs[i] < INT32_MIN || largs[i] > INT32_MAX) {
-				zend_argument_value_error(getThis() ? (i-1) : i,
-					"must be between %d and %d", INT32_MIN, INT32_MAX);
-				RETURN_THROWS();
+				intl_error_set(NULL, U_ILLEGAL_ARGUMENT_ERROR,
+					"intlgregcal_create_instance: at least one of the arguments"
+					" has an absolute value that is too large", 0);
+				if (!is_constructor) {
+					zval_ptr_dtor(return_value);
+					RETVAL_NULL();
+				}
+				return;
 			}
 		}
 
@@ -185,7 +203,8 @@ static void _php_intlgregcal_constructor_body(
 		gcal->adoptTimeZone(tz);
 	}
 
-	co->ucal = gcal;
+    Calendar_object *co = Z_INTL_CALENDAR_P(return_value);
+    co->ucal = gcal;
 }
 
 U_CFUNC PHP_FUNCTION(intlgregcal_create_instance)
@@ -193,19 +212,17 @@ U_CFUNC PHP_FUNCTION(intlgregcal_create_instance)
 	intl_error_reset(NULL);
 
 	object_init_ex(return_value, GregorianCalendar_ce_ptr);
-	_php_intlgregcal_constructor_body(INTERNAL_FUNCTION_PARAM_PASSTHRU, /* is_constructor */ 0, NULL, NULL);
+	_php_intlgregcal_constructor_body(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
 }
 
 U_CFUNC PHP_METHOD(IntlGregorianCalendar, __construct)
 {
 	zend_error_handling error_handling;
-	bool error_handling_replaced = 0;
 
+	zend_replace_error_handling(EH_THROW, IntlException_ce_ptr, &error_handling);
 	return_value = ZEND_THIS;
-	_php_intlgregcal_constructor_body(INTERNAL_FUNCTION_PARAM_PASSTHRU, /* is_constructor */ 1, &error_handling, &error_handling_replaced);
-	if (error_handling_replaced) {
-		zend_restore_error_handling(&error_handling);
-	}
+	_php_intlgregcal_constructor_body(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
+	zend_restore_error_handling(&error_handling);
 }
 
 U_CFUNC PHP_FUNCTION(intlgregcal_set_gregorian_change)
@@ -215,7 +232,9 @@ U_CFUNC PHP_FUNCTION(intlgregcal_set_gregorian_change)
 
 	if (zend_parse_method_parameters(ZEND_NUM_ARGS(), getThis(),
 			"Od", &object, GregorianCalendar_ce_ptr, &date) == FAILURE) {
-		RETURN_THROWS();
+		intl_error_set(NULL, U_ILLEGAL_ARGUMENT_ERROR,
+			"intlgregcal_set_gregorian_change: bad arguments", 0);
+		RETURN_FALSE;
 	}
 
 	CALENDAR_METHOD_FETCH_OBJECT;
@@ -233,7 +252,9 @@ U_CFUNC PHP_FUNCTION(intlgregcal_get_gregorian_change)
 
 	if (zend_parse_method_parameters(ZEND_NUM_ARGS(), getThis(),
 			"O", &object, GregorianCalendar_ce_ptr) == FAILURE) {
-		RETURN_THROWS();
+		intl_error_set(NULL, U_ILLEGAL_ARGUMENT_ERROR,
+			"intlgregcal_get_gregorian_change: bad arguments", 0);
+		RETURN_FALSE;
 	}
 
 	CALENDAR_METHOD_FETCH_OBJECT;
@@ -248,12 +269,15 @@ U_CFUNC PHP_FUNCTION(intlgregcal_is_leap_year)
 
 	if (zend_parse_method_parameters(ZEND_NUM_ARGS(), getThis(),
 			"Ol", &object, GregorianCalendar_ce_ptr, &year) == FAILURE) {
-		RETURN_THROWS();
+		intl_error_set(NULL, U_ILLEGAL_ARGUMENT_ERROR,
+			"intlgregcal_is_leap_year: bad arguments", 0);
+		RETURN_FALSE;
 	}
 
 	if (year < INT32_MIN || year > INT32_MAX) {
-		zend_argument_value_error(getThis() ? 1 : 2, "must be between %d and %d", INT32_MIN, INT32_MAX);
-		RETURN_THROWS();
+		intl_error_set(NULL, U_ILLEGAL_ARGUMENT_ERROR,
+			"intlgregcal_is_leap_year: year out of bounds", 0);
+		RETURN_FALSE;
 	}
 
 	CALENDAR_METHOD_FETCH_OBJECT;

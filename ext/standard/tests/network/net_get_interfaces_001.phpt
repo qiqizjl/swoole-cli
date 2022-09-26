@@ -26,6 +26,5 @@ if (!$found) {
   // Extra diagnostics!
   var_dump($ifaces);
 }
-?>
 --EXPECT--
 bool(true)

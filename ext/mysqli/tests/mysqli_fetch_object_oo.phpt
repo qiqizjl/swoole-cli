@@ -1,9 +1,9 @@
 --TEST--
 mysqli_fetch_object()
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 ?>
 --FILE--
@@ -11,12 +11,13 @@ require_once('skipifconnectfailure.inc');
     require_once("connect.inc");
     set_error_handler('handle_catchable_fatal');
 
+    $tmp    = NULL;
+    $link   = NULL;
+
     $mysqli = new mysqli();
-    try {
-        new mysqli_result($mysqli);
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    $res = @new mysqli_result($mysqli);
+    if (false !== ($tmp = @$res->fetch_object()))
+        printf("[001] Expecting false, got %s/%s\n", gettype($tmp), $tmp);
 
     require('table.inc');
     if (!$mysqli = new my_mysqli($host, $user, $passwd, $db, $port, $socket))
@@ -26,6 +27,9 @@ require_once('skipifconnectfailure.inc');
     if (!$res = $mysqli->query("SELECT id AS ID, label FROM test AS TEST ORDER BY id LIMIT 5")) {
         printf("[003] [%d] %s\n", $mysqli->errno, $mysqli->error);
     }
+
+    if (!is_null($tmp = @$res->fetch_object($link)))
+        printf("[004] Expecting NULL, got %s/%s\n", gettype($tmp), $tmp);
 
     try {
         if (!is_null($tmp = @$res->fetch_object($link, $link)))
@@ -74,9 +78,14 @@ require_once('skipifconnectfailure.inc');
     }
 
     try {
-        $res->fetch_object('mysqli_fetch_object_construct', null);
-    } catch (TypeError $exception) {
-        echo $exception->getMessage() . "\n";
+        $obj = $res->fetch_object('mysqli_fetch_object_construct', null);
+
+        if (($obj->ID !== "3") || ($obj->label !== "c") || ($obj->a !== NULL) || ($obj->b !== NULL) || (get_class($obj) != 'mysqli_fetch_object_construct')) {
+            printf("[009] Object seems wrong. [%d] %s\n", $mysqli->errno, $mysqli->error);
+            var_dump($obj);
+        }
+    } catch (Error $e) {
+        handle_catchable_fatal($e->getCode(), $e->getMessage(), $e->getFile(), $e->getLine());
         mysqli_fetch_object($res);
     }
 
@@ -107,17 +116,10 @@ require_once('skipifconnectfailure.inc');
 
     mysqli_free_result($res);
 
-    try {
-        mysqli_fetch_object($res);
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    var_dump(mysqli_fetch_object($res));
 
-    try {
-        var_dump($res->fetch_object('this_class_does_not_exist'));
-    } catch (TypeError $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    // Fatal error, script execution will end
+    var_dump($res->fetch_object('this_class_does_not_exist'));
 
     $mysqli->close();
     print "done!";
@@ -127,13 +129,17 @@ require_once('skipifconnectfailure.inc');
     require_once("clean_table.inc");
 ?>
 --EXPECTF--
-mysqli object is not fully initialized
-[0] Object of class mysqli could not be converted to string in %s on line %d
-[0] mysqli_result::fetch_object() expects at most 2 arguments, 3 given in %s on line %d
-mysqli_result::fetch_object(): Argument #2 ($constructor_args) must be of type array, null given
+[E_WARNING] mysqli_result::__construct(): invalid object or resource mysql%s
+%s on line %d
+[E_WARNING] mysqli_result::fetch_object(): Couldn't fetch mysqli_result in %s on line %d
+[E_WARNING] mysqli_result::fetch_object() expects parameter 1 to be string, object given in %s on line %d
+[0] Argument 2 passed to mysqli_result::fetch_object() must be of the type array, object given in %s on line %d
+[0] Argument 2 passed to mysqli_result::fetch_object() must be of the type array, object given in %s on line %d
+[0] Argument 2 passed to mysqli_result::fetch_object() must be of the type array, null given in %s on line %d
 Exception: Too few arguments to function mysqli_fetch_object_construct::__construct(), 1 passed and exactly 2 expected
 NULL
 NULL
-mysqli_result object is already closed
-mysqli_result::fetch_object(): Argument #1 ($class) must be a valid class name, this_class_does_not_exist given
-done!
+[E_WARNING] mysqli_fetch_object(): Couldn't fetch mysqli_result in %s on line %d
+bool(false)
+
+Fatal error: Class 'this_class_does_not_exist' not found in %s on line %d

@@ -1,7 +1,5 @@
 --TEST--
 Bug #72562: Use After Free in unserialize() with Unexpected Session Deserialization
---EXTENSIONS--
-session
 --SKIPIF--
 <?php include('skipif.inc'); ?>
 --FILE--
@@ -29,12 +27,12 @@ var_dump($out_2);
 
 function ptr2str($ptr)
 {
-    $out = '';
-    for ($i = 0; $i < 8; $i++) {
-        $out .= chr($ptr & 0xff);
-        $ptr >>= 8;
-    }
-    return $out;
+	$out = '';
+	for ($i = 0; $i < 8; $i++) {
+		$out .= chr($ptr & 0xff);
+		$ptr >>= 8;
+	}
+	return $out;
 }
 ?>
 --EXPECTF--

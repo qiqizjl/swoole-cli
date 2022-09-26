@@ -2,6 +2,12 @@
 Test array_product() function : variation
 --FILE--
 <?php
+/* Prototype  : mixed array_product(array input)
+ * Description: Returns the product of the array entries
+ * Source code: ext/standard/array.c
+ * Alias to functions:
+ */
+
 echo "*** Testing array_product() : variation - using non numeric values ***\n";
 
 class A {
@@ -22,6 +28,7 @@ foreach ($types as $desc => $type) {
 
 fclose($fp);
 ?>
+===DONE===
 --EXPECTF--
 *** Testing array_product() : variation - using non numeric values ***
 boolean (true)
@@ -48,3 +55,4 @@ int(0)
 array
 int(1)
 
+===DONE===

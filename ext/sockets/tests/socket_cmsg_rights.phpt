@@ -1,10 +1,10 @@
 --TEST--
 recvmsg(): receive SCM_CREDENTIALS messages
---EXTENSIONS--
-sockets
 --SKIPIF--
 <?php
-
+if (!extension_loaded('sockets')) {
+die('skip sockets extension not available.');
+}
 if (strtolower(substr(PHP_OS, 0, 3)) == 'win') {
 die('skip not for Microsoft Windows');
 }
@@ -77,14 +77,11 @@ if ($data["control"]) {
     echo "FAIL CONTROL\n";
     var_dump($data);
 }
-?>
 --EXPECTF--
 creating send socket
-object(Socket)#%d (0) {
-}
+resource(%d) of type (Socket)
 creating receive socket
-object(Socket)#%d (0) {
-}
+resource(%d) of type (Socket)
 bool(true)
 int(11)
 array(3) {

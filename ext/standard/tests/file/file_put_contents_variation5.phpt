@@ -19,7 +19,7 @@ runtest();
 $newpath = "";
 set_include_path($newpath);
 runtest();
-set_include_path("");
+set_include_path(null);
 runtest();
 set_include_path(";;  ; ;c:\\rubbish");
 runtest();
@@ -41,8 +41,10 @@ function runtest() {
    }
 }
 ?>
+===DONE===
 --EXPECT--
 File written in working directory
 File written in working directory
 File written in working directory
 File written in working directory
+===DONE===

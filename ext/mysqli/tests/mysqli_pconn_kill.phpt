@@ -1,9 +1,9 @@
 --TEST--
 Killing a persistent connection.
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 require_once("connect.inc");
 ?>
@@ -62,11 +62,7 @@ mysqli.max_persistent=2
         printf("[009] Thread of the regular connection should be still there, [%d] %s\n", mysqli_errno($link), mysqli_error($link));
 
     // On PHP side this should do nothing. PHP should not try to close the connection or something.
-    try {
-        mysqli_close($plink);
-    } catch (Error $exception) {
-        echo $exception->getMessage() . "\n";
-    }
+    @mysqli_close($plink);
 
     if (!$plink = @my_mysqli_connect($host, $user, $passwd, $db, $port, $socket))
         printf("[011] Cannot connect to the server using host=%s, user=%s, passwd=***, dbname=%s, port=%s, socket=%s\n",
@@ -93,8 +89,7 @@ mysqli.max_persistent=2
 ?>
 --CLEAN--
 <?php
-	require_once("clean_table.inc");
+    require_once("clean_table.inc");
 ?>
 --EXPECT--
-mysqli object is already closed
 done!

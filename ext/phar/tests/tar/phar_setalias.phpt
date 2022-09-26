@@ -1,7 +1,7 @@
 --TEST--
 Phar::setAlias() tar-based
---EXTENSIONS--
-phar
+--SKIPIF--
+<?php if (!extension_loaded("phar")) die("skip"); ?>
 --INI--
 phar.require_hash=0
 phar.readonly=0
@@ -22,7 +22,7 @@ $files['b'] = 'b';
 $files['c'] = 'c';
 
 foreach ($files as $n => $file) {
-    $phar[$n] = $file;
+	$phar[$n] = $file;
 }
 
 $phar->stopBuffering();
@@ -37,6 +37,7 @@ $a = new Phar($fname2);
 echo $a->getAlias() . "\n";
 
 ?>
+===DONE===
 --CLEAN--
 <?php
 unlink(__DIR__ . '/' . basename(__FILE__, '.clean.php') . '.phar.tar');
@@ -47,3 +48,4 @@ __HALT_COMPILER();
 hio
 test
 test
+===DONE===

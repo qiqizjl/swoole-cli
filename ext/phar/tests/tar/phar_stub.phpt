@@ -1,7 +1,7 @@
 --TEST--
 Phar::setStub() (tar-based)
---EXTENSIONS--
-phar
+--SKIPIF--
+<?php if (!extension_loaded("phar")) die("skip"); ?>
 --INI--
 phar.require_hash=0
 phar.readonly=0
@@ -57,6 +57,7 @@ $phar['testing'] = 'hi';
 
 echo $phar->getStub();
 ?>
+===DONE===
 --CLEAN--
 <?php
 unlink(__DIR__ . '/' . basename(__FILE__, '.clean.php') . '.phar.tar.php');
@@ -71,3 +72,4 @@ __HALT_COMPILER();
 <?php echo "third stub\n"; __HALT_COMPILER(); ?>booya
 <?php echo "third stub\n"; __HALT_COMPILER(); ?>
 <?php echo "third stub\n"; __HALT_COMPILER(); ?>
+===DONE===

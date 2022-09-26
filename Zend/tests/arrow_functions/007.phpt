@@ -1,8 +1,5 @@
 --TEST--
 Pretty printing for arrow functions
---INI--
-zend.assertions=1
-assert.exception=0
 --FILE--
 <?php
 

@@ -4,23 +4,20 @@ SplFileObject::fgetcsv with alternative delimiter
 <?php
 $fp = fopen('SplFileObject__fgetcsv5.csv', 'w+');
 fputcsv($fp, array(
-    'field1',
-    'field2',
-    'field3',
-    5
+	'field1',
+	'field2',
+	'field3',
+	5
 ), ',', '"');
 fclose($fp);
 
 $fo = new SplFileObject('SplFileObject__fgetcsv5.csv');
-try {
-    var_dump($fo->fgetcsv(',', 'invalid'));
-} catch (ValueError $e) {
-    echo $e->getMessage(), "\n";
-}
+var_dump($fo->fgetcsv(',', 'invalid'));
 ?>
 --CLEAN--
 <?php
 unlink('SplFileObject__fgetcsv5.csv');
 ?>
---EXPECT--
-SplFileObject::fgetcsv(): Argument #2 ($enclosure) must be a single character
+--EXPECTF--
+Warning: SplFileObject::fgetcsv(): enclosure must be a character in %s on line %d
+bool(false)

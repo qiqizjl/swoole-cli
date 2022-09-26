@@ -19,27 +19,27 @@ class Container implements Iterator
         $this->container->append($element);
     }
 
-    public function current(): mixed
+    public function current()
     {
         return $this->iterator->current();
     }
 
-    public function next(): void
+    public function next()
     {
         $this->iterator->next();
     }
 
-    public function key(): mixed
+    public function key()
     {
         return $this->iterator->key();
     }
 
-    public function valid(): bool
+    public function valid()
     {
         return $this->iterator->valid();
     }
 
-    public function rewind(): void
+    public function rewind()
     {
         $this->iterator->rewind();
     }
@@ -98,7 +98,7 @@ var_dump($selfArray['foo']);
 0 => test1
 1 => test2
 
-Warning: Undefined array key "foo" in %s on line %d
+Notice: Undefined index: foo in %s on line %d
 NULL
 object(SelfArray)#9 (1) {
   ["foo"]=>

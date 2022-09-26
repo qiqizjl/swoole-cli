@@ -6,6 +6,7 @@ $file = new SplTempFileObject;
 $file->setCsvControl(',', '"', '');
 var_dump($file->getCsvControl());
 ?>
+===DONE===
 --EXPECT--
 array(3) {
   [0]=>
@@ -15,3 +16,4 @@ array(3) {
   [2]=>
   string(0) ""
 }
+===DONE===

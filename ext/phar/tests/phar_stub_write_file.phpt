@@ -1,7 +1,7 @@
 --TEST--
 Phar::setStub()/getStub() from file
---EXTENSIONS--
-phar
+--SKIPIF--
+<?php if (!extension_loaded("phar")) die("skip"); ?>
 --INI--
 phar.require_hash=0
 phar.readonly=0
@@ -42,6 +42,7 @@ var_dump($phar->getStub() == $stub);
 var_dump($phar->getStub() == $sexp);
 
 ?>
+===DONE===
 --CLEAN--
 <?php
 unlink(__DIR__ . '/' . basename(__FILE__, '.clean.php') . '.phar.php');
@@ -61,3 +62,4 @@ bool(false)
 bool(true)
 bool(false)
 bool(true)
+===DONE===

@@ -1,9 +1,9 @@
 --TEST--
 Persistent connections - limits (-1, unlimited)
---EXTENSIONS--
-mysqli
 --SKIPIF--
 <?php
+require_once('skipif.inc');
+require_once('skipifemb.inc');
 require_once('skipifconnectfailure.inc');
 require_once("connect.inc");
 ?>
@@ -87,7 +87,7 @@ mysqli.max_links=-1
 ?>
 --CLEAN--
 <?php
-	require_once("clean_table.inc");
+    require_once("clean_table.inc");
 ?>
 --EXPECT--
 Regular connection 1 - 'works..'

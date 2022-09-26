@@ -22,7 +22,7 @@
 #include <zend.h>
 #include <zend_vm_opcodes.h>
 
-static const char *zend_vm_opcodes_names[203] = {
+static const char *zend_vm_opcodes_names[195] = {
 	"ZEND_NOP",
 	"ZEND_ADD",
 	"ZEND_SUB",
@@ -218,17 +218,9 @@ static const char *zend_vm_opcodes_names[203] = {
 	"ZEND_GET_CALLED_CLASS",
 	"ZEND_GET_TYPE",
 	"ZEND_ARRAY_KEY_EXISTS",
-	"ZEND_MATCH",
-	"ZEND_CASE_STRICT",
-	"ZEND_MATCH_ERROR",
-	"ZEND_JMP_NULL",
-	"ZEND_CHECK_UNDEF_ARGS",
-	"ZEND_FETCH_GLOBALS",
-	"ZEND_VERIFY_NEVER_TYPE",
-	"ZEND_CALLABLE_CONVERT",
 };
 
-static uint32_t zend_vm_opcodes_flags[203] = {
+static uint32_t zend_vm_opcodes_flags[195] = {
 	0x00000000,
 	0x00000b0b,
 	0x00000b0b,
@@ -242,7 +234,7 @@ static uint32_t zend_vm_opcodes_flags[203] = {
 	0x80000b0b,
 	0x80000b0b,
 	0x00000707,
-	0x0000000b,
+	0x00000007,
 	0x00000007,
 	0x80000707,
 	0x80000303,
@@ -279,7 +271,7 @@ static uint32_t zend_vm_opcodes_flags[203] = {
 	0x00002007,
 	0x00000705,
 	0x00000101,
-	0x00001301,
+	0x00001001,
 	0x07000003,
 	0x00000007,
 	0x00000707,
@@ -292,11 +284,11 @@ static uint32_t zend_vm_opcodes_flags[203] = {
 	0x00000000,
 	0x01040310,
 	0x00000003,
-	0x00040110,
+	0x0000a110,
 	0x00040310,
-	0x00001307,
-	0x00001301,
-	0x00001301,
+	0x00001007,
+	0x00001001,
+	0x00001001,
 	0x0100a173,
 	0x01040300,
 	0x00000005,
@@ -329,15 +321,15 @@ static uint32_t zend_vm_opcodes_flags[203] = {
 	0x00040751,
 	0x0000070b,
 	0x00040391,
-	0x00001301,
+	0x00001001,
 	0x00000000,
 	0x00000000,
 	0x00000000,
 	0x00000000,
 	0x01000000,
-	0x00001301,
+	0x00001001,
 	0x02042003,
-	0x00000007,
+	0x00000003,
 	0x00040771,
 	0x00000057,
 	0x0b000003,
@@ -345,8 +337,8 @@ static uint32_t zend_vm_opcodes_flags[203] = {
 	0x01048773,
 	0x00030107,
 	0x00020707,
-	0x00001303,
-	0x00001301,
+	0x00001003,
+	0x00001001,
 	0x01000703,
 	0x01000000,
 	0x00001003,
@@ -370,8 +362,8 @@ static uint32_t zend_vm_opcodes_flags[203] = {
 	0x00047305,
 	0x00000000,
 	0x00000101,
-	0x00001000,
-	0x00001003,
+	0x00000000,
+	0x00040103,
 	0x00000303,
 	0x00000003,
 	0x00000303,
@@ -386,16 +378,16 @@ static uint32_t zend_vm_opcodes_flags[203] = {
 	0x00020101,
 	0x00000701,
 	0x00000101,
-	0x00000075,
+	0x00000071,
 	0x00000000,
 	0x00000000,
-	0x0b000703,
+	0x0b000303,
 	0x00000003,
 	0x00000020,
 	0x00003000,
-	0x00040110,
+	0x0000a110,
 	0x00000000,
-	0x00000007,
+	0x00000003,
 	0x00000105,
 	0x00040301,
 	0x00002003,
@@ -414,7 +406,7 @@ static uint32_t zend_vm_opcodes_flags[203] = {
 	0x00100101,
 	0x00100101,
 	0x00000101,
-	0x00001301,
+	0x00001001,
 	0x00000101,
 	0x0300030b,
 	0x0300030b,
@@ -424,14 +416,6 @@ static uint32_t zend_vm_opcodes_flags[203] = {
 	0x00000101,
 	0x00000103,
 	0x00000707,
-	0x0300030b,
-	0x00000301,
-	0x0000010b,
-	0x00002003,
-	0x00000101,
-	0x00000101,
-	0x00000101,
-	0x00000101,
 };
 
 ZEND_API const char* ZEND_FASTCALL zend_get_opcode_name(zend_uchar opcode) {
@@ -445,14 +429,4 @@ ZEND_API uint32_t ZEND_FASTCALL zend_get_opcode_flags(zend_uchar opcode) {
 		opcode = ZEND_NOP;
 	}
 	return zend_vm_opcodes_flags[opcode];
-}
-ZEND_API zend_uchar zend_get_opcode_id(const char *name, size_t length) {
-	zend_uchar opcode;
-	for (opcode = 0; opcode < (sizeof(zend_vm_opcodes_names) / sizeof(zend_vm_opcodes_names[0])) - 1; opcode++) {
-		const char *opcode_name = zend_vm_opcodes_names[opcode];
-		if (opcode_name && strncmp(opcode_name, name, length) == 0) {
-			return opcode;
-		}
-	}
-	return ZEND_VM_LAST_OPCODE + 1;
 }

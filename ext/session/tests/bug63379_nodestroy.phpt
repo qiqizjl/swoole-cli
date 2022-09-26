@@ -3,8 +3,6 @@ Bug #63379: Warning when using session_regenerate_id(TRUE) with a SessionHandler
 --INI--
 session.save_handler=files
 session.name=PHPSESSID
---EXTENSIONS--
-session
 --SKIPIF--
 <?php include('skipif.inc'); ?>
 --FILE--
@@ -34,7 +32,6 @@ session_unset();
 
 session_start();
 var_dump($_SESSION);
-?>
 --EXPECT--
 array(1) {
   ["foo"]=>

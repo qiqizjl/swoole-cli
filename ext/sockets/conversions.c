@@ -1,7 +1,3 @@
-#ifdef __sun
-/* to enable 'new' ancillary data layout instead */
-# define _XPG4_2
-#endif
 #include "sockaddr_conv.h"
 #include "conversions.h"
 #include "sendrecvmsg.h" /* for ancillary registry */
@@ -21,7 +17,7 @@
 # include <sys/ioctl.h>
 # include <net/if.h>
 #else
-# include <stdint.h>
+# include <win32/php_stdint.h>
 #endif
 
 #include <limits.h>
@@ -40,6 +36,16 @@ struct _WSAMSG {
     WSABUF           Control;			//void *msg_control, size_t msg_controllen
     DWORD            dwFlags;			//int msg_flags
 }
+struct __WSABUF {
+  u_long			len;				//size_t iov_len (2nd member)
+  char FAR			*buf;				//void *iov_base (1st member)
+}
+struct _WSACMSGHDR {
+  UINT        cmsg_len;					//socklen_t cmsg_len
+  INT         cmsg_level;				//int       cmsg_level
+  INT         cmsg_type;				//int       cmsg_type;
+  followed by UCHAR cmsg_data[]
+}
 */
 # define msg_name		name
 # define msg_namelen	namelen
@@ -51,6 +57,7 @@ struct _WSAMSG {
 # define iov_base		buf
 # define iov_len		len
 
+# define cmsghdr		_WSACMSGHDR
 # ifdef CMSG_DATA
 #  undef CMSG_DATA
 # endif
@@ -230,9 +237,9 @@ static unsigned from_array_iterate(const zval *arr,
 			break;
 		}
 		i++;
-	} ZEND_HASH_FOREACH_END();
+    } ZEND_HASH_FOREACH_END();
 
-	return i -1;
+    return i -1;
 }
 
 /* Generic Aggregated conversions */
@@ -955,8 +962,8 @@ static void from_zval_write_control_array(const zval *arr, char *msghdr_c, ser_c
 		zend_llist_remove_tail(&ctx->keys);
 	} ZEND_HASH_FOREACH_END();
 
-	msg->msg_control = control_buf;
-	msg->msg_controllen = cur_offset; /* not control_len, which may be larger */
+    msg->msg_control = control_buf;
+    msg->msg_controllen = cur_offset; /* not control_len, which may be larger */
 }
 static void to_zval_read_cmsg_data(const char *cmsghdr_c, zval *zv, res_context *ctx)
 {
@@ -1104,7 +1111,7 @@ static void from_zval_write_iov_array(const zval *arr, char *msghdr_c, ser_conte
 	msg->msg_iov = accounted_safe_ecalloc(num_elem, sizeof *msg->msg_iov, 0, ctx);
 	msg->msg_iovlen = (size_t)num_elem;
 
-	from_array_iterate(arr, from_zval_write_iov_array_aux, (void**)&msg, ctx);
+    from_array_iterate(arr, from_zval_write_iov_array_aux, (void**)&msg, ctx);
 }
 static void from_zval_write_controllen(const zval *elem, char *msghdr_c, ser_context *ctx)
 {
@@ -1301,20 +1308,13 @@ void to_zval_read_in6_pktinfo(const char *data, zval *zv, res_context *ctx)
 }
 #endif
 
-/* CONVERSIONS for struct ucred/cmsgcred */
+/* CONVERSIONS for struct ucred */
 #ifdef SO_PASSCRED
 static const field_descriptor descriptors_ucred[] = {
-#if defined(ANC_CREDS_UCRED)
 		{"pid", sizeof("pid"), 1, offsetof(struct ucred, pid), from_zval_write_pid_t, to_zval_read_pid_t},
 		{"uid", sizeof("uid"), 1, offsetof(struct ucred, uid), from_zval_write_uid_t, to_zval_read_uid_t},
 		/* assume the type gid_t is the same as uid_t: */
 		{"gid", sizeof("gid"), 1, offsetof(struct ucred, gid), from_zval_write_uid_t, to_zval_read_uid_t},
-#elif defined(ANC_CREDS_CMSGCRED)
-		{"pid", sizeof("pid"), 1, offsetof(struct cmsgcred, cmcred_pid), from_zval_write_pid_t, to_zval_read_pid_t},
-		{"uid", sizeof("uid"), 1, offsetof(struct cmsgcred, cmcred_uid), from_zval_write_uid_t, to_zval_read_uid_t},
-		/* assume the type gid_t is the same as uid_t: */
-		{"gid", sizeof("gid"), 1, offsetof(struct cmsgcred, cmcred_gid), from_zval_write_uid_t, to_zval_read_uid_t},
-#endif
 		{0}
 };
 void from_zval_write_ucred(const zval *container, char *ucred_c, ser_context *ctx)
@@ -1352,32 +1352,29 @@ static void from_zval_write_fd_array_aux(zval *elem, unsigned i, void **args, se
 {
 	int *iarr = args[0];
 
-	if (Z_TYPE_P(elem) == IS_OBJECT && Z_OBJCE_P(elem) == socket_ce) {
-		php_socket *sock = Z_SOCKET_P(elem);
-		if (IS_INVALID_SOCKET(sock)) {
-			do_from_zval_err(ctx, "socket is already closed");
-			return;
-		}
-
-		iarr[i] = sock->bsd_socket;
-		return;
-	}
-
 	if (Z_TYPE_P(elem) == IS_RESOURCE) {
 		php_stream *stream;
+		php_socket *sock;
+
+		sock = (php_socket *)zend_fetch_resource_ex(elem, NULL, php_sockets_le_socket());
+		if (sock) {
+			iarr[i] = sock->bsd_socket;
+			return;
+		}
 
 		stream = (php_stream *)zend_fetch_resource2_ex(elem, NULL, php_file_le_stream(), php_file_le_pstream());
 		if (stream == NULL) {
-			do_from_zval_err(ctx, "resource is not a stream");
+			do_from_zval_err(ctx, "resource is not a stream or a socket");
 			return;
 		}
 
-		if (php_stream_cast(stream, PHP_STREAM_AS_FD, (void **)&iarr[i - 1], REPORT_ERRORS) == FAILURE) {
+		if (php_stream_cast(stream, PHP_STREAM_AS_FD, (void **)&iarr[i - 1],
+				REPORT_ERRORS) == FAILURE) {
 			do_from_zval_err(ctx, "cast stream to file descriptor failed");
 			return;
 		}
 	} else {
-		do_from_zval_err(ctx, "expected a Socket object or a stream resource");
+		do_from_zval_err(ctx, "expected a resource variable");
 	}
 }
 void from_zval_write_fd_array(const zval *arr, char *int_arr, ser_context *ctx)
@@ -1387,7 +1384,7 @@ void from_zval_write_fd_array(const zval *arr, char *int_arr, ser_context *ctx)
 		return;
 	}
 
-	from_array_iterate(arr, &from_zval_write_fd_array_aux, (void**)&int_arr, ctx);
+   from_array_iterate(arr, &from_zval_write_fd_array_aux, (void**)&int_arr, ctx);
 }
 void to_zval_read_fd_array(const char *data, zval *zv, res_context *ctx)
 {
@@ -1428,10 +1425,8 @@ void to_zval_read_fd_array(const char *data, zval *zv, res_context *ctx)
 			return;
 		}
 		if (S_ISSOCK(statbuf.st_mode)) {
-			object_init_ex(&elem, socket_ce);
-			php_socket *sock = Z_SOCKET_P(&elem);
-
-			socket_import_file_descriptor(fd, sock);
+			php_socket *sock = socket_import_file_descriptor(fd);
+			ZVAL_RES(&elem, zend_register_resource(sock, php_sockets_le_socket()));
 		} else {
 			php_stream *stream = php_stream_fopen_from_fd(fd, "rw", NULL);
 			php_stream_to_zval(stream, &elem);

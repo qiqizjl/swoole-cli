@@ -3,8 +3,8 @@ Test curl_copy_handle() with User Agent
 --CREDITS--
 Rick Buitenman <rick@meritos.nl>
 #testfest Utrecht 2009
---EXTENSIONS--
-curl
+--SKIPIF--
+<?php include 'skipif.inc'; ?>
 --FILE--
 <?php
 
@@ -30,7 +30,9 @@ curl
   curl_close($copy);
 
 ?>
+===DONE===
 --EXPECT--
 *** Testing curl copy handle with User Agent ***
 string(9) "cURL phpt"
 string(9) "cURL phpt"
+===DONE===  

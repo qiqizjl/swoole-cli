@@ -2,28 +2,28 @@
 GetImageSize()
 --SKIPIF--
 <?php
-    require_once('skipif_imagetype.inc');
+	require_once('skipif_imagetype.inc');
 ?>
 --FILE--
 <?php
-    // Note: SWC requires zlib
-    $dir = opendir(__DIR__) or die('cannot open directory: '.__DIR__);
-    $result = array();
-    $files  = array();
-    while (($file = readdir($dir)) !== FALSE) {
-        if (preg_match('/^test.+pix\./',$file) && $file != "test13pix.swf") {
-            $files[] = $file;
-        }
-    }
-    closedir($dir);
-    sort($files);
-    foreach($files as $file) {
-        $result[$file] = getimagesize(__DIR__."/$file");
-    }
-    var_dump($result);
+	// Note: SWC requires zlib
+	$dir = opendir(__DIR__) or die('cannot open directory: '.__DIR__);
+	$result = array();
+	$files  = array();
+	while (($file = readdir($dir)) !== FALSE) {
+		if (preg_match('/^test.+pix\./',$file) && $file != "test13pix.swf") {
+			$files[] = $file;
+		}
+	}
+	closedir($dir);
+	sort($files);
+	foreach($files as $file) {
+		$result[$file] = getimagesize(__DIR__."/$file");
+	}
+	var_dump($result);
 ?>
 --EXPECT--
-array(17) {
+array(16) {
   ["test-1pix.bmp"]=>
   array(6) {
     [0]=>
@@ -68,19 +68,6 @@ array(17) {
     int(32)
     ["mime"]=>
     string(9) "image/bmp"
-  }
-  ["test1pix.avif"]=>
-  array(5) {
-    [0]=>
-    int(0)
-    [1]=>
-    int(0)
-    [2]=>
-    int(19)
-    [3]=>
-    string(20) "width="0" height="0""
-    ["mime"]=>
-    string(10) "image/avif"
   }
   ["test1pix.bmp"]=>
   array(6) {

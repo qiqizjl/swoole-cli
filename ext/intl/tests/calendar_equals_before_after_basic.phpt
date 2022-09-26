@@ -2,8 +2,10 @@
 IntlCalendar::equals(), ::before() and ::after() basic test
 --INI--
 date.timezone=Atlantic/Azores
---EXTENSIONS--
-intl
+--SKIPIF--
+<?php
+if (!extension_loaded('intl'))
+	die('skip intl extension not enabled');
 --FILE--
 <?php
 ini_set("intl.error_level", E_WARNING);
@@ -31,6 +33,7 @@ var_dump("3 before 2",	intlcal_before($intlcal3, $intlcal2));
 var_dump("3 after 2",	intlcal_after($intlcal3, $intlcal2));
 
 ?>
+==DONE==
 --EXPECT--
 string(8) "japanese"
 string(6) "1 eq 1"
@@ -52,4 +55,5 @@ bool(false)
 string(10) "3 before 2"
 bool(false)
 string(9) "3 after 2"
-bool(true)
+bool(true)
+==DONE==

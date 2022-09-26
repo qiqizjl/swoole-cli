@@ -14,7 +14,4 @@ $foo = new Foo();
 
 ?>
 --EXPECTF--
-Fatal error: Uncaught Error: Undefined constant "FOO" in %s:%d
-Stack trace:
-#0 {main}
-  thrown in %s on line %d
+Warning: Use of undefined constant FOO - assumed 'FOO' (this will throw an Error in a future version of PHP) in %s on line %d
