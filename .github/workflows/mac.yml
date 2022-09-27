@@ -10,9 +10,12 @@ jobs:
           - name: install dependencies
             run: brew install php
           - uses: actions/checkout@v2
-          - name: test
+          - name: init deps
             run: |
-                  git status
-                  pwd
-                  php -v
-                  brew list
+              mkdir -p pool/lib pool/ext
+              mkdir -p ../opt
+              sed -i  's/\/Users\/sean\/Documents\/php-work\/swoole-cli-4.x\/\/Users\/runner\/work\/swoole-cli\//' prepare.php
+              ./prepare.php
+              cat prepare.php
+              cat ext/protobuf/config.m4
+              cat ext/grpc/config.m4
