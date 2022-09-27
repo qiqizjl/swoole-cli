@@ -13,14 +13,14 @@ jobs:
             uses: actions/cache@v3
             with:
               path: |
-                ../opt
+                ./opt
                 ./pool
                 ./thirdparty
               key: ${{ runner.os }}-static-deps
           - name: init deps
             run: |
-              mkdir -p pool/lib pool/ext thirdparty
-              mkdir -p ../opt
+              mkdir -p pool/lib pool/ext thirdparty opt
+              ln -s ./opt ../opt
               ./prepare.php macos /Users/runner/work/swoole-cli
               brew uninstall --ignore-dependencies oniguruma
               brew uninstall --ignore-dependencies brotli
@@ -39,4 +39,10 @@ jobs:
 #            run: |
 #              PATH="/usr/local/opt/bison/bin:$PATH" ./make.sh build
 #              otool -L ./bin/swoole-cli
-
+          - name: 'Upload Artifact'
+            uses: actions/upload-artifact@v3
+            with:
+              name: swoole-cli-macos-${{ github.sha }}
+              path: |
+                bin
+              retention-days: 5
