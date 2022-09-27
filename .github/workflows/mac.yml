@@ -12,8 +12,7 @@ jobs:
             run: |
               mkdir -p pool/lib pool/ext
               mkdir -p ../opt
-              sed -i "" 's/\/Users\/sean\/Documents\/php-work\/swoole-cli-4.x\/\/Users\/runner\/work\/swoole-cli\//g' prepare.php
-              ./prepare.php macos
+              ./prepare.php macos /Users/runner/work/swoole-cli
               cat prepare.php
               cat ext/protobuf/config.m4
               cat ext/grpc/config.m4

@@ -12,8 +12,10 @@ if (empty($argv[1])) {
     $type = trim($argv[1]);
 }
 
+$path = $argv[2] ?? "/Users/sean/Documents/php-work/swoole-cli-4.x";
+
 $p = new Preprocessor(__DIR__);
-$p->setPhpSrcDir('/Users/sean/Documents/php-work/swoole-cli-4.x/php-src');
+$p->setPhpSrcDir($path.'/php-src');
 $p->setDockerVersion('1.4');
 $p->setSwooleDir('/home/htf/workspace/swoole');
 
@@ -31,7 +33,7 @@ $endCallback[] = function ($p){
 };
 
 if ($type == 'macos') {
-    define('WORKSPACE', '/Users/sean/Documents/php-work/swoole-cli-4.x');
+    define('WORKSPACE', $path);
     // $p->setWorkDir(WORKSPACE . '/cli-swoole');
     // $p->setExtraLdflags('-L/usr/lib -undefined dynamic_lookup -lwebp -licudata -licui18n -licuio');
     $p->setWorkDir(WORKSPACE.'/swoole-cli');
