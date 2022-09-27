@@ -20,7 +20,7 @@ jobs:
           - name: init deps
             run: |
               mkdir -p pool/lib pool/ext thirdparty opt
-              ln -s ${{ github.workspace }}/opt ${{ github.workspace }}/../opt/
+              ln -s ${{ github.workspace }}/opt ${{ github.workspace }}/../
               ls -al ../
               ls -al
               ./prepare.php macos /Users/runner/work/swoole-cli
