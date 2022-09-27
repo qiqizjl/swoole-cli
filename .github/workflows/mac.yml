@@ -13,6 +13,16 @@ jobs:
               mkdir -p pool/lib pool/ext
               mkdir -p ../opt
               ./prepare.php macos /Users/runner/work/swoole-cli
-              cat prepare.php
-              cat ext/protobuf/config.m4
-              cat ext/grpc/config.m4
+              brew uninstall --ignore-dependencies oniguruma
+              brew uninstall --ignore-dependencies brotli
+              brew uninstall --ignore-dependencies freetype
+              ln -s /usr/local/bin/glibtoolize /usr/local/bin/libtoolize
+              brew install cmake autoconf
+          - name: make configure
+            run: |
+               ./make.sh config
+          - name: make build
+            run: |
+              ./make.sh build
+              otool -L ./bin/swoole-cli
+
