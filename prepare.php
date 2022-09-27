@@ -23,12 +23,12 @@ $endCallback[] = function ($p){
     // 下载Path
     // 处理grpc
     echo `ln  ./ext/grpc/src/php/ext/grpc/php_grpc.h ./ext/grpc/php_grpc.h`;
-    echo `sed -i '/boringssl-with-bazel/d' ext/grpc/config.m4`;
-    echo `sed -i '/FLAGS/d' ext/grpc/config.m4`;
+    echo `sed -i '' '/boringssl-with-bazel/d' ext/grpc/config.m4`;
+    echo `sed -i '' '/FLAGS/d' ext/grpc/config.m4`;
 
     //处理protobuf
     echo `wget https://raw.githubusercontent.com/protocolbuffers/protobuf/main/php/ext/google/protobuf/php_protobuf.h  -O ext/protobuf/php_protobuf.h `;
-    echo `sed -i  's/php-upb.c //' ext/protobuf/config.m4`;
+    echo `sed -i '' 's/php-upb.c //' ext/protobuf/config.m4`;
     //echo `rm -r ext/protobuf/php-upb*`;
 };
 
