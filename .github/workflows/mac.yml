@@ -23,13 +23,16 @@ jobs:
               brew uninstall --ignore-dependencies brotli
               brew uninstall --ignore-dependencies freetype
               ln -s /usr/local/bin/glibtoolize /usr/local/bin/libtoolize
-              brew install bison automake
-              ./make.sh all-library
+              brew install bison automake re2c
+          - if: ${{ steps.cache-npm.outputs.cache-hit != 'true' }}
+            name: build deps
+            run: |
+                ./make.sh all-library
           - name: make configure
             run: |
               PATH="/usr/local/opt/bison/bin:$PATH" ./make.sh config
-          - name: make build
-            run: |
-              PATH="/usr/local/opt/bison/bin:$PATH" ./make.sh build
-              otool -L ./bin/swoole-cli
+#          - name: make build
+#            run: |
+#              PATH="/usr/local/opt/bison/bin:$PATH" ./make.sh build
+#              otool -L ./bin/swoole-cli
 
