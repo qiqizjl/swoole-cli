@@ -1,0 +1,18 @@
+name: mac-build
+on:
+  push:
+    branches:
+      - 7.4.x-4.8.x-grpc
+
+jobs:
+    build:
+        runs-on: macos-latest
+        steps:
+          - name: install dependencies
+            run: brew install php
+          - uses: actions/checkout@v2
+          - name: test
+            run: |
+                git status
+                pwd
+                php -v

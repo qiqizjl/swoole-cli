@@ -17,7 +17,17 @@ $p->setPhpSrcDir('/Users/sean/Documents/php-work/swoole-cli-4.x/php-src');
 $p->setDockerVersion('1.4');
 $p->setSwooleDir('/home/htf/workspace/swoole');
 
-$endCallback = function () {
+$endCallback[] = function ($p){
+    // 下载Path
+    // 处理grpc
+    echo `ln  ./ext/grpc/src/php/ext/grpc/php_grpc.h ./ext/grpc/php_grpc.h`;
+    echo `sed -i '/boringssl-with-bazel/d' ext/grpc/config.m4`;
+    echo `sed -i '/FLAGS/d' ext/grpc/config.m4`;
+
+    //处理protobuf
+    echo `wget https://raw.githubusercontent.com/protocolbuffers/protobuf/main/php/ext/google/protobuf/php_protobuf.h  -O ext/protobuf/php_protobuf.h `;
+    echo `sed -i  's/php-upb.c //' ext/protobuf/config.m4`;
+    //echo `rm -r ext/protobuf/php-upb*`;
 };
 
 if ($type == 'macos') {
@@ -26,7 +36,7 @@ if ($type == 'macos') {
     // $p->setExtraLdflags('-L/usr/lib -undefined dynamic_lookup -lwebp -licudata -licui18n -licuio');
     $p->setWorkDir(WORKSPACE.'/swoole-cli');
     $p->setExtraLdflags('-L/usr/lib -framework CoreFoundation -framework SystemConfiguration -undefined dynamic_lookup -lwebp -licudata -licui18n -licuio');
-    $endCallback = function($p) {
+    $endCallback[] = function($p) {
         $makesh = file_get_contents(__DIR__.'/make.sh');
         $makesh = str_replace('/usr', WORKSPACE.'/opt/usr', $makesh);
         $makesh = str_replace('export PKG_CONFIG_PATH=', 'export PKG_CONFIG_PATH=' . WORKSPACE . '/opt/usr/lib/pkgconfig:', $makesh);
@@ -344,7 +354,7 @@ function install_curl(Preprocessor $p)
         (new Library('curl'))
             ->withUrl('https://curl.se/download/curl-7.80.0.tar.gz')
             ->withConfigure("autoreconf -fi && ./configure --prefix=/usr/curl --enable-static --disable-shared --with-openssl=/usr/openssl " .
-                "--without-librtmp --without-brotli --without-libidn2 --disable-ldap --disable-rtsp --without-zstd --without-nghttp2 --without-nghttp3"
+                            "--without-librtmp --without-brotli --without-libidn2 --disable-ldap --disable-rtsp --without-zstd --without-nghttp2 --without-nghttp3"
             )
             ->withLdflags('-L/usr/curl/lib')
             ->withPkgConfig('/usr/curl/lib/pkgconfig')
@@ -476,7 +486,7 @@ $extAvailabled = [
     },
     "grpc"=>function($p){
         $p->addExtension((new Extension('grpc'))
-            ->withOptions('--enable-grpc=./thirdparty/grpc')
+            ->withOptions('--enable-grpc')
             ->withPeclVersion('1.44.0'));
     },
     "protobuf"=>function($p){
@@ -524,4 +534,6 @@ foreach ($extEnabled as $ext) {
 $p->gen();
 $p->info();
 
-$endCallback($p);
+foreach ($endCallback as $item) {
+    $item($p);
+}
