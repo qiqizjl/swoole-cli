@@ -17,7 +17,8 @@ jobs:
               brew uninstall --ignore-dependencies brotli
               brew uninstall --ignore-dependencies freetype
               ln -s /usr/local/bin/glibtoolize /usr/local/bin/libtoolize
-              brew install cmake autoconf
+              brew install cmake autoconf bison
+              ./make all-library
           - name: make configure
             run: |
                ./make.sh config
