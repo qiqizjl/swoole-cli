@@ -7,15 +7,13 @@ jobs:
     build:
         runs-on: macos-latest
         steps:
-          - name: install dependencies
-            run: brew install php
           - uses: actions/checkout@v2
           - name: init deps
             run: |
               mkdir -p pool/lib pool/ext
               mkdir -p ../opt
-              sed -i  's/\/Users\/sean\/Documents\/php-work\/swoole-cli-4.x\/\/Users\/runner\/work\/swoole-cli\//' prepare.php
-              ./prepare.php
+              sed -i "" 's/\/Users\/sean\/Documents\/php-work\/swoole-cli-4.x\/\/Users\/runner\/work\/swoole-cli\//g' prepare.php
+              ./prepare.php macos
               cat prepare.php
               cat ext/protobuf/config.m4
               cat ext/grpc/config.m4
