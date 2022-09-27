@@ -8,6 +8,12 @@ jobs:
         runs-on: macos-latest
         steps:
           - uses: actions/checkout@v2
+          - name: Cache Static Build
+            id: cache-static-deps
+            uses: actions/cache@v3
+            with:
+              path: ../opt
+              key: ${{ runner.os }}-static-deps
           - name: init deps
             run: |
               mkdir -p pool/lib pool/ext
@@ -17,13 +23,13 @@ jobs:
               brew uninstall --ignore-dependencies brotli
               brew uninstall --ignore-dependencies freetype
               ln -s /usr/local/bin/glibtoolize /usr/local/bin/libtoolize
-              brew install bison
+              brew install bison automake
               ./make.sh all-library
           - name: make configure
             run: |
-               ./make.sh config
+              PATH="/usr/local/opt/bison/bin:$PATH" ./make.sh config
           - name: make build
             run: |
-              ./make.sh build
+              PATH="/usr/local/opt/bison/bin:$PATH" ./make.sh build
               otool -L ./bin/swoole-cli
 
