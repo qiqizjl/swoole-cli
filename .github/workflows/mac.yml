@@ -12,6 +12,7 @@ jobs:
           - uses: actions/checkout@v2
           - name: test
             run: |
-                git status
-                pwd
-                php -v
+                  git status
+                  pwd
+                  php -v
+                  brew list
