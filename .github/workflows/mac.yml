@@ -36,6 +36,8 @@ jobs:
                 ./make.sh all-library
           - name: make configure
             run: |
+              ls -al ../opt/libiconv/lib
+              PATH="/usr/local/opt/bison/bin:$PATH" ./make.sh pkg-check
               PATH="/usr/local/opt/bison/bin:$PATH" ./make.sh config
               sed -i '' 's/-ne //g' ./main/php_config.h                                    
           - name: make build
