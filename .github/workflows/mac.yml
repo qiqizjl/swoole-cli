@@ -29,7 +29,7 @@ jobs:
               brew uninstall --ignore-dependencies freetype
               ln -s /usr/local/bin/glibtoolize /usr/local/bin/libtoolize
               brew install bison automake re2c
-          - if: ${{ steps.cache-npm.outputs.cache-hit != 'true' }}
+          - if: ${{ steps.cache-static-deps.outputs.cache-hit != 'true' }}
             name: build deps
             run: |
                 wget https://sourceforge.net/p/giflib/bugs/_discuss/thread/4e811ad29b/c323/attachment/Makefile.patch -O pool/lib/giflib.patch
