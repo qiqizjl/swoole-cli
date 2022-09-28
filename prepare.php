@@ -12,7 +12,7 @@ if (empty($argv[1])) {
     $type = trim($argv[1]);
 }
 
-$path = $argv[2] ?? "/Users/sean/Documents/php-work/swoole-cli-4.x";
+$path = $argv[2] ?? "..";
 
 $p = new Preprocessor(__DIR__);
 $p->setPhpSrcDir($path.'/php-src');
@@ -20,23 +20,10 @@ $p->setDockerVersion('1.4');
 $p->setSwooleDir('/home/htf/workspace/swoole');
 
 $endCallback[] = function ($p){
-    // 下载Path
-    // 处理grpc
-    echo `ln  ./ext/grpc/src/php/ext/grpc/php_grpc.h ./ext/grpc/php_grpc.h`;
-    echo `sed -i '' '/boringssl-with-bazel/d' ext/grpc/config.m4`;
-    echo `sed -i '' '/CFLAGS/d' ext/grpc/config.m4`;
-    echo `sed -i '' 's/-std=c++11 -fno-exceptions -fno-rtti -g -O2/-std=c++14 -g -O2/' ext/grpc/config.m4`;
-
-    //处理protobuf
-    echo `wget https://raw.githubusercontent.com/protocolbuffers/protobuf/main/php/ext/google/protobuf/php_protobuf.h  -O ext/protobuf/php_protobuf.h `;
-    echo `sed -i '' 's/php-upb.c //' ext/protobuf/config.m4`;
-    //echo `rm -r ext/protobuf/php-upb*`;
 };
 
 if ($type == 'macos') {
     define('WORKSPACE', $path);
-    // $p->setWorkDir(WORKSPACE . '/cli-swoole');
-    // $p->setExtraLdflags('-L/usr/lib -undefined dynamic_lookup -lwebp -licudata -licui18n -licuio');
     $p->setWorkDir(WORKSPACE.'/swoole-cli');
     $p->setExtraLdflags('-L/usr/lib -framework CoreFoundation -framework SystemConfiguration -undefined dynamic_lookup -lwebp -licudata -licui18n -licuio');
     $endCallback[] = function($p) {
@@ -486,17 +473,7 @@ $extAvailabled = [
         $p->addExtension((new Extension('mongodb'))
             ->withOptions('--enable-mongodb')
             ->withPeclVersion('1.14.1'));
-    },
-    "grpc"=>function($p){
-        $p->addExtension((new Extension('grpc'))
-            ->withOptions('--enable-grpc')
-            ->withPeclVersion('1.44.0'));
-    },
-    "protobuf"=>function($p){
-        $p->addExtension((new Extension('protobuf'))
-            ->withOptions('--enable-protobuf')
-            ->withPeclVersion('3.19.1'));
-    },
+    }
 ];
 
 $extEnabled = [
@@ -509,8 +486,6 @@ $extEnabled = [
     'imagick',
     //'inotify',
     //'mongodb',
-    "grpc",
-    "protobuf",
 ];
 
 for ($i = 1; $i < $argc; $i++) {
