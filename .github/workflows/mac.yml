@@ -27,7 +27,7 @@ jobs:
               brew uninstall --ignore-dependencies oniguruma
               brew uninstall --ignore-dependencies brotli
               brew uninstall --ignore-dependencies freetype
-              brew uninstall --ignore-dependencies libopm
+              brew uninstall --ignore-dependencies libomp
               ln -s /usr/local/bin/glibtoolize /usr/local/bin/libtoolize
               brew install bison automake re2c
               rm -rf ../opt/usr/lib/*.dylib
