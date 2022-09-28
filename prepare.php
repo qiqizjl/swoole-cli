@@ -186,7 +186,7 @@ function install_freetype(Preprocessor $p)
             ->withConfigure('./configure --prefix=/usr/freetype --enable-static --disable-shared')
             ->withHomePage('https://freetype.org/')
             ->withLdflags('-L/usr/freetype/lib')
-            ->withPkgName('freetyp2')
+            ->withPkgName('freetype2')
             ->withPkgConfig('/usr/freetype/lib/pkgconfig')
             ->withLicense('https://gitlab.freedesktop.org/freetype/freetype/-/blob/master/docs/FTL.TXT', Library::LICENSE_SPEC)
     );
