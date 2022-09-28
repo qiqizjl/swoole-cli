@@ -24,7 +24,8 @@ $endCallback[] = function ($p){
     // 处理grpc
     echo `ln  ./ext/grpc/src/php/ext/grpc/php_grpc.h ./ext/grpc/php_grpc.h`;
     echo `sed -i '' '/boringssl-with-bazel/d' ext/grpc/config.m4`;
-    echo `sed -i '' '/FLAGS/d' ext/grpc/config.m4`;
+    echo `sed -i '' '/CFLAGS/d' ext/grpc/config.m4`;
+    echo `sed -i '' 's/-std=c++11 -fno-exceptions -fno-rtti -g -O2/-std=c++14 -g -O2/' ext/grpc/config.m4`;
 
     //处理protobuf
     echo `wget https://raw.githubusercontent.com/protocolbuffers/protobuf/main/php/ext/google/protobuf/php_protobuf.h  -O ext/protobuf/php_protobuf.h `;

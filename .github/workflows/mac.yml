@@ -21,8 +21,7 @@ jobs:
             run: |
               mkdir -p pool/lib pool/ext thirdparty opt
               ln -s ${{ github.workspace }}/opt ${{ github.workspace }}/../
-              ls -al ../
-              ls -al
+              ls -al ./ext/
               ./prepare.php macos /Users/runner/work/swoole-cli
               brew uninstall --ignore-dependencies oniguruma
               brew uninstall --ignore-dependencies brotli
