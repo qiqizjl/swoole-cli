@@ -1,0 +1,59 @@
+name: mac-build
+on:
+  push:
+    branches: [ "7.4.x-4.8.x" ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache Static Build
+        id: cache-static-deps
+        uses: actions/cache@v3
+        with:
+          path: |
+            ./opt
+            ./pool
+            ./thirdparty
+          key: ${{ runner.os }}-7.4.x-4.8.x-static-deps
+      - name: init deps
+        run: |
+          mkdir -p pool/lib pool/ext thirdparty opt
+          ln -s ${{ github.workspace }}/opt ${{ github.workspace }}/../
+          rm -rf ./ext/swoole
+          ls -al ./ext/
+          ./prepare.php macos ${{ github.workspace }}/..
+          brew uninstall --ignore-dependencies oniguruma
+          brew uninstall --ignore-dependencies brotli
+          brew uninstall --ignore-dependencies freetype
+          brew uninstall --ignore-dependencies libomp
+          ln -s /usr/local/bin/glibtoolize /usr/local/bin/libtoolize
+          brew install bison automake re2c
+          rm -rf ../opt/usr/lib/*.dylib
+      - if: ${{ steps.cache-static-deps.outputs.cache-hit != 'true' }}
+        name: build deps
+        run: |
+          wget https://sourceforge.net/p/giflib/bugs/_discuss/thread/4e811ad29b/c323/attachment/Makefile.patch -O pool/lib/giflib.patch
+          ./make.sh all-library
+      - name: make configure
+        run: |
+          ls -al ../opt/
+          PATH="/usr/local/opt/bison/bin:$PATH" ./make.sh pkg-check
+          PATH="/usr/local/opt/bison/bin:$PATH" ./make.sh config
+          sed -i '' 's/-ne //g' ./main/php_config.h
+      - name: make build
+        run: |
+          PATH="/usr/local/opt/bison/bin:$PATH" ./make.sh build
+      - name: test
+        run: |
+          otool -L ./bin/swoole-cli
+          ./bin/swoole-cli --version
+          ./bin/swoole-cli -ini
+      - name: 'Upload Artifact'
+        uses: actions/upload-artifact@v3
+        with:
+          name: swoole-cli-macos-${{ github.sha }}
+          path: |
+            bin
+          retention-days: 5

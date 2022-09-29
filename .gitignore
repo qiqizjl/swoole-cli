@@ -301,3 +301,4 @@ tmp-php.ini
 /ext/grpc
 /ext/protobuf/
 /bin/swoole-cli
+make.sh
