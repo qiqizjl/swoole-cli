@@ -2,6 +2,8 @@ name: linux-build
 on:
   push:
     branches: [ "7.4.x-4.8.x" ]
+  tags:
+    - 7.4.*-4.8.*-r*
 
 jobs:
   build:
@@ -15,7 +17,6 @@ jobs:
           branch: edge
           packages: >
             vim alpine-sdk xz autoconf automake linux-headers clang-dev clang lld libtool cmake bison re2c zlib-dev
-#          volumes: /work:${{ github.workspace }}
       - name: Cache Static Build
         id: cache-static-deps
         uses: actions/cache@v3
@@ -60,6 +61,14 @@ jobs:
           path: |
             bin
           retention-days: 5
-
+      - if: ${{ gtihub.ref_type == 'tag' }}
+        name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: bin
+          asset_name: swoole-cli${{ runner.os }}.${{ runner.arch }}-${{ github.ref_name }}.tar.gz
+          tag: ${{ github.ref }}
+          overwrite: true
 
 
