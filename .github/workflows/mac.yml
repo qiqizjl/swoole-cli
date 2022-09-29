@@ -70,7 +70,7 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: swoole-cli.tar.gz
+          file: swoole-cli.tar.xz
           asset_name: swoole-cli-macos.x64-${{ github.ref_name }}.tar.gz
           tag: ${{ github.ref }}
           overwrite: true
