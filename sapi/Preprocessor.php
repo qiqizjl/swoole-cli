@@ -144,6 +144,7 @@ class Preprocessor
     protected string $swooleDir;
     protected string $workDir = '/work';
     protected string $extraLdflags = '';
+    protected string $os = 'linux';
     protected int $maxJob = 8;
     protected bool $installLibrary = true;
 
@@ -187,6 +188,11 @@ class Preprocessor
     function donotInstallLibrary()
     {
         $this->installLibrary = false;
+    }
+
+    function setOs(string $os)
+    {
+        $this->os = $os;
     }
 
     function addLibrary(Library $lib)

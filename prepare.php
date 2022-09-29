@@ -16,6 +16,7 @@ $path = $argv[2] ?? "..";
 define('WORKSPACE', $path);
 
 $p = new Preprocessor(__DIR__);
+$p->setOs($type);
 $p->setPhpSrcDir($path.'/php-src');
 $p->setDockerVersion('1.4');
 $p->setSwooleDir('/home/htf/workspace/swoole');
