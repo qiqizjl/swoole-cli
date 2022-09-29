@@ -29,11 +29,11 @@ jobs:
           pwd
           ls -al
           ln -s ${{ github.workspace }}/  /work
-          ls -al /work
+          ls -al /work/
           mkdir -p pool/lib pool/ext opt
-          apk add php php-pear
+          apk add php php-pear php-openssl
           ./prepare.php linux ${{ github.workspace }}/..
-          apk del php php-pear
+          apk del php php-pear php-openssl
           chmod +x make.sh
         shell: alpine.sh --root {0}
       - name: build deps
