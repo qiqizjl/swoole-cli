@@ -13,6 +13,7 @@ if (empty($argv[1])) {
 }
 
 $path = $argv[2] ?? "..";
+define('WORKSPACE', $path);
 
 $p = new Preprocessor(__DIR__);
 $p->setPhpSrcDir($path.'/php-src');
@@ -23,7 +24,6 @@ $endCallback[] = function ($p){
 };
 
 if ($type == 'macos') {
-    define('WORKSPACE', $path);
     $p->setWorkDir(WORKSPACE.'/swoole-cli');
     $p->setExtraLdflags('-L/usr/lib -framework CoreFoundation -framework SystemConfiguration -undefined dynamic_lookup -lwebp -licudata -licui18n -licuio');
     $endCallback[] = function($p) {
