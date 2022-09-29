@@ -14,7 +14,7 @@ jobs:
         with:
           branch: edge
           packages: >
-            vim alpine-sdk xz autoconf automake linux-headers clang-dev clang lld libtool cmake
+            vim alpine-sdk xz autoconf automake linux-headers clang-dev clang lld libtool cmake bison
 #          volumes: /work:${{ github.workspace }}
       - name: Cache Static Build
         id: cache-static-deps
@@ -30,7 +30,7 @@ jobs:
           ls -al
           ln -s ${{ github.workspace }}/  /work
           ls -al /work/
-          mkdir -p pool/lib pool/ext opt
+          mkdir -p pool/lib pool/ext thirdparty
           apk add php php-pear php-openssl
           ./prepare.php linux ${{ github.workspace }}/..
           apk del php php-pear php-openssl
