@@ -26,7 +26,6 @@ jobs:
           key: ${{ runner.os }}-7.4.x-4.8.x-static-deps
       - name: init dep
         run: |
-#          ls -al /work
           pwd
           ls -al
           mkdir -p pool/lib pool/ext opt
