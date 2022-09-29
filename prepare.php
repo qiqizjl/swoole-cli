@@ -130,11 +130,16 @@ function install_gmp(Preprocessor $p)
 
 function install_giflib(Preprocessor $p)
 {
+    global $type;
+    $configure = "";
+    if ($type == "macos") {
+        $configure = 'patch -p0 < '.WORKSPACE."/swoole-cli/pool/lib/giflib.patch";
+    }
     $p->addLibrary(
         (new Library('giflib'))
             ->withUrl('https://nchc.dl.sourceforge.net/project/giflib/giflib-5.2.1.tar.gz')
             ->withMakeOptions('libgif.a ')
-            ->withConfigure('patch -p0 < '.WORKSPACE."/swoole-cli/pool/lib/giflib.patch")
+            ->withConfigure($configure)
             ->withMakeInstallOptions("PREFIX=/usr")
             ->withLicense('http://giflib.sourceforge.net/intro.html', Library::LICENSE_SPEC)
     );

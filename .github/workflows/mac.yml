@@ -35,6 +35,7 @@ jobs:
         run: |
           wget https://sourceforge.net/p/giflib/bugs/_discuss/thread/4e811ad29b/c323/attachment/Makefile.patch -O pool/lib/giflib.patch
           ./make.sh all-library
+          rm -rf ../opt/usr/lib/*.dylib
       - name: make configure
         run: |
           ls -al ../opt/

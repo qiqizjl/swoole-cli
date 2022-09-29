@@ -1,0 +1,56 @@
+name: linux-build
+on:
+  push:
+    branches: [ "7.4.x-4.8.x" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup latest Alpine Linux
+        uses: jirutka/setup-alpine@v1
+        with:
+          branch: edge
+          packages: >
+            vim alpine-sdk xz autoconf automake linux-headers clang-dev clang lld libtool cmake
+      - name: Cache Static Build
+        id: cache-static-deps
+        uses: actions/cache@v3
+        with:
+          path: |
+            ./opt
+            ./pool
+          key: ${{ runner.os }}-7.4.x-4.8.x-static-deps
+      - name: init dep
+        run: |
+          mkdir -p pool/lib pool/ext opt
+          apk add php
+          ./prepare.php linux ${{ github.workspace }}/..
+          apk del php
+          chmod +x make.sh
+      - name: build deps
+        run: |
+          ./make.sh all-library
+      - name: make configure
+        run: |
+          ./make.sh pkg-check
+          ./make.sh config
+      - name : make build
+        run: |
+          ./make.sh build
+      - name: test
+        run: |
+          ./bin/swoole-cli --version
+          ./bin/swoole-cli -ini
+      - name: 'Upload Artifact'
+        uses: actions/upload-artifact@v3
+        with:
+          name: swoole-cli-linux-${{ github.sha }}
+          path: |
+            bin
+          retention-days: 5
+
+
+
