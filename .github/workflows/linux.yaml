@@ -14,14 +14,14 @@ jobs:
         with:
           branch: edge
           packages: >
-            vim alpine-sdk xz autoconf automake linux-headers clang-dev clang lld libtool cmake bison
+            vim alpine-sdk xz autoconf automake linux-headers clang-dev clang lld libtool cmake bison re2c
 #          volumes: /work:${{ github.workspace }}
       - name: Cache Static Build
         id: cache-static-deps
         uses: actions/cache@v3
         with:
           path: |
-            ./opt
+            ./thirdparty
             ./pool
           key: ${{ runner.os }}-7.4.x-4.8.x-static-deps
       - name: init dep
