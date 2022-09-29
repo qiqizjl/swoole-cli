@@ -63,7 +63,8 @@ jobs:
         name: compress binrary
         run: |
           cd bin
-          tar -cJvf ../swoole-cli.tar.xz swoole-cli LICENSE
+          tar -cJvf swoole-cli.tar.xz swoole-cli LICENSE
+          mv swoole-cli.tar.xz ../swoole-cli.tar.xz
       - if: startsWith(github.event.ref, 'refs/tags')
         name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
