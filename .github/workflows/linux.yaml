@@ -30,16 +30,20 @@ jobs:
           ./prepare.php linux ${{ github.workspace }}/..
           apk del php
           chmod +x make.sh
+        shell: alpine.sh --root {0}
       - name: build deps
         run: |
           ./make.sh all-library
+        shell: alpine.sh --root {0}
       - name: make configure
         run: |
           ./make.sh pkg-check
           ./make.sh config
+        shell: alpine.sh --root {0}
       - name : make build
         run: |
           ./make.sh build
+        shell: alpine.sh --root {0}
       - name: test
         run: |
           ./bin/swoole-cli --version
