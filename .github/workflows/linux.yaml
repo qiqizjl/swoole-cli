@@ -15,7 +15,7 @@ jobs:
           branch: edge
           packages: >
             vim alpine-sdk xz autoconf automake linux-headers clang-dev clang lld libtool cmake
-          volumes: /work:${{ github.workspace }}
+#          volumes: /work:${{ github.workspace }}
       - name: Cache Static Build
         id: cache-static-deps
         uses: actions/cache@v3
