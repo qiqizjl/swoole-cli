@@ -2,8 +2,8 @@ name: linux-build
 on:
   push:
     branches: [ "7.4.x-4.8.x" ]
-  tags:
-    - 7.4.*-4.8.*-r*
+    tags:
+      - 7.4.*-4.8.*-r*
 
 jobs:
   build:
