@@ -31,9 +31,9 @@ jobs:
           ln -s ${{ github.workspace }}/  /work
           ls -al /work
           mkdir -p pool/lib pool/ext opt
-          apk add php
+          apk add php php-pear
           ./prepare.php linux ${{ github.workspace }}/..
-          apk del php
+          apk del php php-pear
           chmod +x make.sh
         shell: alpine.sh --root {0}
       - name: build deps
