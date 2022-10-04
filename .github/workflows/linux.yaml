@@ -27,10 +27,7 @@ jobs:
           key: ${{ runner.os }}-7.4.x-4.8.x-static-deps
       - name: init dep
         run: |
-          pwd
-          ls -al
           ln -s ${{ github.workspace }}/  /work
-          ls -al /work/
           mkdir -p pool/lib pool/ext thirdparty
           apk add php php-pear php-openssl
           ./prepare.php linux ${{ github.workspace }}/..

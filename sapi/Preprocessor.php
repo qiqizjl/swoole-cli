@@ -240,13 +240,11 @@ class Preprocessor
 
             $dst_dir = $this->rootDir.DIRECTORY_SEPARATOR."ext".DIRECTORY_SEPARATOR.$ext->name;
             if (!is_dir($dst_dir)) {
-                //echo "tar --strip-components=1 -C $dst_dir -xf {$ext->path}";
                 echo `mkdir -p $dst_dir`;
-                //$cmd = "tar --strip-components=1 -C \"$dst_dir\" -xf \"$ext->path\"";
                 $cmd = str_replace(DIRECTORY_SEPARATOR,"/","tar  --force-local --strip-components=1 -C \"$dst_dir\" -xf \"$ext->path\"");
-                echo $cmd . PHP_EOL;
-                echo $dst_dir . PHP_EOL;
-                echo $ext->path . PHP_EOL;
+                if ($this->os == 'macos') {
+                    $cmd = str_replace("--force-local","",$cmd);
+                }
                 echo `{$cmd}`;
             }
         }
