@@ -3,7 +3,7 @@ on:
   push:
     branches: [ "7.4.x-4.8.x-release" ]
     tags:
-      - 7.4.*-4.8.*-r*
+      - 7.4.*-4.8.*-r*-beta
 
 jobs:
   build:
