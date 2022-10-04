@@ -151,8 +151,8 @@ class Preprocessor
     function __construct(string $rootPath)
     {
         $this->rootDir = $rootPath;
-        $this->libraryDir = $rootPath . '/pool/lib';
-        $this->extensionDir = $rootPath . '/pool/ext';
+        $this->libraryDir = $rootPath . DIRECTORY_SEPARATOR.'pool'.DIRECTORY_SEPARATOR.'lib';
+        $this->extensionDir = $rootPath . DIRECTORY_SEPARATOR.'pool'.DIRECTORY_SEPARATOR.'ext';
     }
 
     function setPhpSrcDir(string $phpSrcDir)
@@ -200,8 +200,9 @@ class Preprocessor
         if (empty($lib->file)) {
             $lib->file = basename($lib->url);
         }
-        if (!is_file($this->libraryDir . '/' . $lib->file)) {
-            echo `wget {$lib->url} -O {$this->libraryDir}/{$lib->file}`;
+        if (!is_file($this->libraryDir . DIRECTORY_SEPARATOR . $lib->file)) {
+            $dist = $this->libraryDir.DIRECTORY_SEPARATOR.$lib->file;
+            echo `wget {$lib->url} -O {$dist}`;
             echo $lib->file;
         } else {
             echo "[Library] file cached: " . $lib->file . PHP_EOL;
@@ -222,31 +223,31 @@ class Preprocessor
     {
         if ($ext->peclVersion) {
             if ($ext->peclVersion == 'latest') {
-                $find = glob($this->extensionDir . '/' . $ext->name . '-*.tgz');
-                if (!$find) {
-                    goto _download;
-                }
-                $file = basename($find[0]);
+                throw new \RuntimeException("require pecl version");
             } else {
                 $file = $ext->name . '-' . $ext->peclVersion . '.tgz';
             }
 
             $ext->file = $file;
-            $ext->path = $this->extensionDir . '/' . $file;
+            $ext->path = $this->extensionDir . DIRECTORY_SEPARATOR . $file;
 
             if (!is_file($ext->path)) {
-                _download:
-                $download_name = $ext->peclVersion == 'latest' ? $ext->name : $ext->name . '-' . $ext->peclVersion;
-                echo "pecl download $download_name\n";
-                echo `cd {$this->extensionDir} && pecl download $download_name && cd -`;
+                echo `wget https://pecl.php.net/get/{$ext->file} -O {$ext->path}`;
+                echo $ext->file;
             } else {
                 echo "[Extension] file cached: " . $ext->file . PHP_EOL;
             }
 
-            $dst_dir = "{$this->rootDir}/ext/{$ext->name}";
+            $dst_dir = $this->rootDir.DIRECTORY_SEPARATOR."ext".DIRECTORY_SEPARATOR.$ext->name;
             if (!is_dir($dst_dir)) {
+                //echo "tar --strip-components=1 -C $dst_dir -xf {$ext->path}";
                 echo `mkdir -p $dst_dir`;
-                echo `tar --strip-components=1 -C $dst_dir -xf {$ext->path}`;
+                //$cmd = "tar --strip-components=1 -C \"$dst_dir\" -xf \"$ext->path\"";
+                $cmd = str_replace(DIRECTORY_SEPARATOR,"/","tar  --force-local --strip-components=1 -C \"$dst_dir\" -xf \"$ext->path\"");
+                echo $cmd . PHP_EOL;
+                echo $dst_dir . PHP_EOL;
+                echo $ext->path . PHP_EOL;
+                echo `{$cmd}`;
             }
         }
 
@@ -256,12 +257,12 @@ class Preprocessor
     function gen()
     {
         ob_start();
-        include __DIR__ . '/make.php';
-        file_put_contents($this->rootDir . '/make.sh', ob_get_clean());
+        include __DIR__ . DIRECTORY_SEPARATOR.'make.php';
+        file_put_contents($this->rootDir . DIRECTORY_SEPARATOR.'make.sh', ob_get_clean());
 
         ob_start();
-        include __DIR__ . '/license.php';
-        file_put_contents($this->rootDir . '/bin/LICENSE', ob_get_clean());
+        include __DIR__ . DIRECTORY_SEPARATOR.'license.php';
+        file_put_contents($this->rootDir . DIRECTORY_SEPARATOR.'bin'.DIRECTORY_SEPARATOR.'LICENSE', ob_get_clean());
     }
 
     /**

@@ -420,6 +420,9 @@ $p->addExtension((new Extension('sodium'))->withOptions('--with-sodium'));
 $p->addExtension((new Extension('json'))->withOptions('--enable-json'));
 //$p->addExtension((new Extension('readline'))->withOptions('--with-libedit'));
 //$p->addExtension((new Extension('opcache'))->withOptions('--enable-opcache'));
+if ($type == "windows"){
+    $p->addExtension((new Extension('pcre'))->withOptions('--without-pcre-jit'));
+}
 
 $extAvailabled = [
     'openssl' => function ($p) {

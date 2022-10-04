@@ -1,6 +1,18 @@
 <?php
+
+
+if (!function_exists("str_starts_with")){
+    function str_starts_with(string $haystack, string $needle): bool
+    {
+        return 0 === strncmp($haystack, $needle, \strlen($needle));
+    }
+
+}
+
+
 $src = dirname(__DIR__);
-$dst = "/cygdrive/d/swoole-cli-v".SWOOLE_VERSION."-cygwin64";
+$dst = dirname(__DIR__) . '/dist';
+//$dst = "/cygdrive/d/swoole-cli-v".SWOOLE_VERSION."-cygwin64";
 if (!is_dir($dst)) {
     mkdir($dst, 0777, true);
 }
