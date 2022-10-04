@@ -1,7 +1,7 @@
 name: mac-build
 on:
   push:
-    branches: [ "7.4.x-4.8.x-release" ]
+    branches: [ "7.4.x-4.8.x" ]
     tags:
       - 7.4.*-4.8.*-r*-beta
 
@@ -65,7 +65,7 @@ jobs:
           cd bin
           tar -cJvf swoole-cli-${{ github.sha }}.tar.xz swoole-cli LICENSE
           mv swoole-cli-${{ github.sha }}.tar.xz ../swoole-cli-${{ github.sha }}.tar.xz
-          brew reinstall curl
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 brew reinstall curl
       - name: Test background
         uses: luchihoratiu/debug-via-ssh@main
         with:
