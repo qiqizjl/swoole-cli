@@ -63,8 +63,8 @@ jobs:
       - name: compress binrary
         run: |
           cd bin
-          tar -czvf swoole-cli-${{ github.sha }}.tar.gz swoole-cli LICENSE
-          mv swoole-cli-${{ github.sha }}.tar.gz ../swoole-cli-macos.x64-${{ github.ref_name }}.tar.gz
+          gtar -cJvf swoole-cli-${{ github.sha }}.tar.xz swoole-cli LICENSE
+          mv swoole-cli-${{ github.sha }}.tar.xz ../swoole-cli-macos.x64-${{ github.ref_name }}.tar.xz
           HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 brew reinstall curl
 #      - name: Test background
 #        uses: luchihoratiu/debug-via-ssh@main
@@ -76,5 +76,5 @@ jobs:
         name: Upload binaries to release
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: swoole-cli-macos.x64-${{ github.ref_name }}.tar.gz
+          file: swoole-cli-macos.x64-${{ github.ref_name }}.tar.xz
           tag: ${{ github.ref }}
