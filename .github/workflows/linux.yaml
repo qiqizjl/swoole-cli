@@ -63,13 +63,13 @@ jobs:
         run: |
           cd bin
           strip swoole-cli
-          tar -cJvf swoole-cli.tar.xz swoole-cli LICENSE
-          mv swoole-cli.tar.xz ../swoole-cli-linux.x64-${{ github.ref_name }}.tar.xz
+          tar -czvf swoole-cli.tar.xz swoole-cli LICENSE
+          mv swoole-cli.tar.gz ../swoole-cli-linux.x64-${{ github.ref_name }}.tar.gz
       - if: startsWith(github.event.ref, 'refs/tags')
+        uses: svenstaro/upload-release-action@v2
         name: Upload binaries to release
-        uses: softprops/action-gh-release@v1
         with:
-          files: |
-            swoole-cli-linux.x64-${{ github.ref_name }}.tar.xz
-
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: swoole-cli-linux.x64-${{ github.ref_name }}.tar.gz
+          tag: ${{ github.ref }}
 
