@@ -65,6 +65,7 @@ jobs:
           cd bin
           tar -cJvf swoole-cli-${{ github.sha }}.tar.xz swoole-cli LICENSE
           mv swoole-cli-${{ github.sha }}.tar.xz ../swoole-cli-${{ github.sha }}.tar.xz
+          brew reinstall curl
       - name: Test background
         uses: luchihoratiu/debug-via-ssh@main
         with:
