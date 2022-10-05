@@ -16,7 +16,8 @@ jobs:
         with:
           branch: edge
           packages: >
-            vim alpine-sdk xz autoconf automake linux-headers clang-dev clang lld libtool cmake bison re2c zlib-dev
+            vim alpine-sdk xz autoconf automake linux-headers
+            clang-dev clang lld libtool cmake bison re2c zlib-dev
       - name: init dep
         run: |
           ln -s ${{ github.workspace }}/  /work
