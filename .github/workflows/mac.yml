@@ -63,14 +63,12 @@ jobs:
         name: compress binrary
         run: |
           cd bin
-          tar -cJvf swoole-cli.tar.xz swoole-cli LICENSE
-          mv swoole-cli.tar.xz ../swoole-cli.tar.xz
+          gtar -cJvf swoole-cli-${{ github.sha }}.tar.xz swoole-cli LICENSE
+          mv swoole-cli-${{ github.sha }}.tar.xz ../swoole-cli-macos.x64-${{ github.ref_name }}.tar.xz
       - if: startsWith(github.event.ref, 'refs/tags')
-        name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
+        name: Upload binaries to release
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: swoole-cli.tar.xz
-          asset_name: swoole-cli-macos.x64-${{ github.ref_name }}.tar.xz
+          file: swoole-cli-macos.x64-${{ github.ref_name }}.tar.xz
           tag: ${{ github.ref }}
-          overwrite: true

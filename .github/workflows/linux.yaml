@@ -17,14 +17,6 @@ jobs:
           branch: edge
           packages: >
             vim alpine-sdk xz autoconf automake linux-headers clang-dev clang lld libtool cmake bison re2c zlib-dev
-      - name: Cache Static Build
-        id: cache-static-deps
-        uses: actions/cache@v3
-        with:
-          path: |
-            ./thirdparty
-            ./pool
-          key: ${{ runner.os }}-7.4.x-4.8.x-static-deps
       - name: init dep
         run: |
           ln -s ${{ github.workspace }}/  /work
@@ -64,15 +56,12 @@ jobs:
           cd bin
           strip swoole-cli
           tar -cJvf swoole-cli.tar.xz swoole-cli LICENSE
-          mv swoole-cli.tar.xz ../swoole-cli.tar.xz
+          mv swoole-cli.tar.xz ../swoole-cli-linux.x64-${{ github.ref_name }}.tar.xz
       - if: startsWith(github.event.ref, 'refs/tags')
-        name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
+        name: Upload binaries to release
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: swoole-cli.tar.xz
-          asset_name: swoole-cli-linux-x64-${{ github.ref_name }}.tar.xz
+          file: swoole-cli-linux.x64-${{ github.ref_name }}.tar.xz
           tag: ${{ github.ref }}
-          overwrite: true
-
 
