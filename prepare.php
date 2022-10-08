@@ -494,11 +494,20 @@ $extEnabled = [
     'yaml',
     'imagick',
     //'inotify',
-    'mongodb',
+    //'mongodb',
 ];
 
 if ($type == "linux"){
     $extEnabled[] = 'inotify';
+}
+
+
+if ($type != "windows"){
+    $extEnabled[] = "mongodb";
+    $endCallback[] = function ($p) {
+        echo `curl https://raw.githubusercontent.com/mongodb/mongo-c-driver/master/src/libbson/src/bson/bson-cmp.h > ext/mongodb/src/libmongoc/src/libbson/src/bson/bson-cmp.h`;
+        echo `cat ext/mongodb/src/libmongoc/src/libbson/src/bson/bson-cmp.h;`
+    };
 }
 
 
