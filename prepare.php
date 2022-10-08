@@ -494,8 +494,13 @@ $extEnabled = [
     'yaml',
     'imagick',
     //'inotify',
-    //'mongodb',
+    'mongodb',
 ];
+
+if ($type == "linux"){
+    $extEnabled[] = 'inotify';
+}
+
 
 for ($i = 1; $i < $argc; $i++) {
     $op = $argv[$i][0];

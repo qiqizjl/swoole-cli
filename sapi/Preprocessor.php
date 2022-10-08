@@ -242,7 +242,7 @@ class Preprocessor
             if (!is_dir($dst_dir)) {
                 echo `mkdir -p $dst_dir`;
                 $cmd = str_replace(DIRECTORY_SEPARATOR,"/","tar  --force-local --strip-components=1 -C \"$dst_dir\" -xf \"$ext->path\"");
-                if ($this->os == 'macos') {
+                if (PHP_OS == 'Darwin') {
                     $cmd = str_replace("--force-local","",$cmd);
                 }
                 echo `{$cmd}`;
