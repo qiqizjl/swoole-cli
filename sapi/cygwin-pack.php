@@ -1,6 +1,7 @@
 <?php
 $src = dirname(__DIR__);
-$dst = "/cygdrive/d/swoole-cli-v".SWOOLE_VERSION."-cygwin64";
+$dst = dirname(__DIR__) . '/dist';
+//$dst = "/cygdrive/d/swoole-cli-v".SWOOLE_VERSION."-cygwin64";
 if (!is_dir($dst)) {
     mkdir($dst, 0777, true);
 }
