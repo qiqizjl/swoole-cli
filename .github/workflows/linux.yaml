@@ -1,0 +1,68 @@
+name: linux-build
+on:
+  push:
+    branches: [ "8.1.x-5.x" ]
+    tags:
+      - 8.1.*-5.*-r*
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup latest Alpine Linux
+        uses: jirutka/setup-alpine@v1
+        with:
+          branch: edge
+          packages: >
+            vim alpine-sdk xz autoconf automake linux-headers
+            clang-dev clang lld libtool cmake bison re2c zlib-dev
+      - name: init dep
+        run: |
+          ln -s ${{ github.workspace }}/  /work
+          mkdir -p pool/lib pool/ext thirdparty
+          apk add php php-pear php-openssl
+          ./prepare.php linux ${{ github.workspace }}/..
+          apk del php php-pear php-openssl
+          chmod +x make.sh
+        shell: alpine.sh --root {0}
+      - name: build deps
+        run: |
+          ./make.sh all-library
+        shell: alpine.sh --root {0}
+      - name: make configure
+        run: |
+          ./make.sh pkg-check
+          ./make.sh config
+        shell: alpine.sh --root {0}
+      - name : make build
+        run: |
+          ./make.sh build
+        shell: alpine.sh --root {0}
+      - name: test
+        run: |
+          ./bin/swoole-cli --version
+          ./bin/swoole-cli -ini
+      - name: 'Upload Artifact'
+        uses: actions/upload-artifact@v3
+        with:
+          name: swoole-cli-linux-${{ github.sha }}
+          path: |
+            bin
+          retention-days: 5
+      - if: startsWith(github.event.ref, 'refs/tags')
+        name: compress binrary
+        run: |
+          cd bin
+          strip swoole-cli
+          tar -cJvf swoole-cli.tar.xz swoole-cli LICENSE
+          mv swoole-cli.tar.xz ../swoole-cli-linux.x64-${{ github.ref_name }}.tar.xz
+      - if: startsWith(github.event.ref, 'refs/tags')
+        uses: svenstaro/upload-release-action@v2
+        name: Upload binaries to release
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: swoole-cli-linux.x64-${{ github.ref_name }}.tar.xz
+          tag: ${{ github.ref }}
+

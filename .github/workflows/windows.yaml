@@ -1,0 +1,84 @@
+name: windows-build
+on:
+  push:
+    branches: [ "8.1.x-5.x" ]
+    tags:
+      - 8.1.*-5.*-r*
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      CYGWIN_NOWINPATH: 1 # only have cygwin's executables on PATH
+      CHERE_INVOKING: 1 # prevent profile script to change directory
+    steps:
+      - run: git config --global core.autocrlf input
+      - uses: actions/checkout@v2
+      - name: setup cygwin
+        uses: cygwin/cygwin-install-action@v2
+        with:
+          packages: |
+            gcc-g++ gcc-core libgcc+ bison wget autoconf libtool make zip
+            libssl-devel libcurl-devel libxml2-devel libxslt-devel libgmp-devel ImageMagick libpng-devel libjpeg-devel
+            libfreetype-devel libwebp-devel libsqlite3-devel zlib-devel libbz2-devel libzip2-devel libicu-devel
+            libonig-devel libcares-devel libsodium-devel libyaml-devel libMagick-devel libzip-devel
+      - name: init deps
+        run: |
+          mkdir -p pool/lib
+          mkdir -p  pool/ext
+          /cygdrive/c/tools/php/php --version
+          /cygdrive/c/tools/php/php ./prepare.php windows ${{ github.workspace }}/..
+        shell: C:\cygwin\bin\bash.exe --login -eo pipefail -o igncr {0}
+      - name: init cygwin deps
+        run: |
+          # 安装cygwin部分依赖
+          mkdir -p deps && \
+          cd deps && \
+          wget https://github.com/skvadrik/re2c/releases/download/3.0/re2c-3.0.tar.xz && \
+          tar -xf re2c-3.0.tar.xz && \
+          cd re2c-3.0 && \
+          ./configure --prefix=/usr && \
+          make -j 2 && \
+          make install
+        shell: C:\cygwin\bin\bash.exe --login -eo pipefail -o igncr {0}
+      - name: make configure
+        run: |
+          # 先对Configure进行修改
+          sed -i 's/\=\/usr\/.* / /g' ./make.sh  && \
+          sed -i 's/\=\/usr / /g' ./make.sh  && \
+          sed -i '/clang/d' make.sh && \
+          sed -i '/LD=ld.lld/d' make.sh && \
+          ./make.sh config
+        shell: C:\cygwin\bin\bash.exe --login -eo pipefail -o igncr {0}
+      - name : make build
+        run: |
+          make -j 4
+        shell: C:\cygwin\bin\bash.exe --login -eo pipefail -o igncr {0}
+      - name: test
+        run: |
+          ./bin/swoole-cli --version
+          ./bin/swoole-cli -ini
+      - name: compress build
+        run: |
+          cd bin && \
+          strip swoole-cli.exe && \
+          cd - && \
+          ./bin/swoole-cli.exe sapi/cygwin-pack.php && \
+          chmod +x  dist/bin/* && \
+          cd dist && \
+          zip -r ../swoole-cli-cygwin.x64-${{ github.ref_name }}.zip *
+        shell: C:\cygwin\bin\bash.exe --login -eo pipefail -o igncr {0}
+      - name: 'Upload Artifact'
+        uses: actions/upload-artifact@v3
+        with:
+          name: swoole-cli-cygwin-${{ github.sha }}
+          path: |
+            dist
+          retention-days: 5
+      - if: startsWith(github.event.ref, 'refs/tags')
+        uses: svenstaro/upload-release-action@v2
+        name: Upload binaries to release
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: swoole-cli-cygwin.x64-${{ github.ref_name }}.zip
+          tag: ${{ github.ref }}

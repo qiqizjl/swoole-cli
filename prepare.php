@@ -13,8 +13,10 @@ if (empty($argv[1])) {
 }
 
 $path = $argv[2] ?? "..";
+define('WORKSPACE', $path);
 
 $p = new Preprocessor(__DIR__);
+$p->setOs($type);
 $p->setPhpSrcDir($path.'/php-src');
 $p->setDockerVersion('1.4');
 $p->setSwooleDir('/home/htf/workspace/swoole');
@@ -23,7 +25,6 @@ $endCallback[] = function ($p){
 };
 
 if ($type == 'macos') {
-    define('WORKSPACE', $path);
     $p->setWorkDir(WORKSPACE.'/swoole-cli');
     $p->setExtraLdflags('-L/usr/lib -framework CoreFoundation -framework SystemConfiguration -undefined dynamic_lookup -lwebp -licudata -licui18n -licuio');
     $endCallback[] = function($p) {
@@ -130,11 +131,16 @@ function install_gmp(Preprocessor $p)
 
 function install_giflib(Preprocessor $p)
 {
+    global $type;
+    $configure = "";
+    if ($type == "macos") {
+        $configure = 'patch -p0 < '.WORKSPACE."/swoole-cli/pool/lib/giflib.patch";
+    }
     $p->addLibrary(
         (new Library('giflib'))
             ->withUrl('https://nchc.dl.sourceforge.net/project/giflib/giflib-5.2.1.tar.gz')
             ->withMakeOptions('libgif.a ')
-            ->withConfigure('patch -p0 < '.WORKSPACE."/swoole-cli/pool/lib/giflib.patch")
+            ->withConfigure($configure)
             ->withMakeInstallOptions("PREFIX=/usr")
             ->withLicense('http://giflib.sourceforge.net/intro.html', Library::LICENSE_SPEC)
     );
@@ -414,6 +420,9 @@ $p->addExtension((new Extension('sodium'))->withOptions('--with-sodium'));
 $p->addExtension((new Extension('json'))->withOptions('--enable-json'));
 //$p->addExtension((new Extension('readline'))->withOptions('--with-libedit'));
 //$p->addExtension((new Extension('opcache'))->withOptions('--enable-opcache'));
+if ($type == "windows"){
+    $p->addExtension((new Extension('pcre'))->withOptions('--without-pcre-jit'));
+}
 
 $extAvailabled = [
     'openssl' => function ($p) {
@@ -434,7 +443,7 @@ $extAvailabled = [
     },
     'swoole' => function ($p) {
         $p->addExtension((new Extension('swoole'))
-            ->withPeclVersion('4.8.12')
+            ->withPeclVersion('5.0.0')
             ->withOptions('--enable-swoole --enable-http2 --enable-sockets --enable-mysqlnd --enable-swoole-json --enable-swoole-curl --enable-cares')
             ->withLicense('https://github.com/swoole/swoole-src/blob/master/LICENSE', Extension::LICENSE_APACHE2)
             ->withHomePage('https://github.com/swoole/swoole-src')
@@ -487,6 +496,20 @@ $extEnabled = [
     //'inotify',
     //'mongodb',
 ];
+
+if ($type == "linux"){
+    $extEnabled[] = 'inotify';
+}
+
+
+if ($type != "windows"){
+    $extEnabled[] = "mongodb";
+    $endCallback[] = function ($p) {
+        echo `curl https://raw.githubusercontent.com/mongodb/mongo-c-driver/master/src/libbson/src/bson/bson-cmp.h > ext/mongodb/src/libmongoc/src/libbson/src/bson/bson-cmp.h`;
+        echo `cat ext/mongodb/src/libmongoc/src/libbson/src/bson/bson-cmp.h`;
+    };
+}
+
 
 for ($i = 1; $i < $argc; $i++) {
     $op = $argv[$i][0];
