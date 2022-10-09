@@ -309,7 +309,6 @@ tmp-php.ini
 /ext/yaml
 /ext/mongodb
 /ext/inotify
-/ext/grpc
-/ext/protobuf/
+/ext/swoole
 /bin/swoole-cli
 make.sh
