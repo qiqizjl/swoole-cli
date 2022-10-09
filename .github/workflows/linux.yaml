@@ -51,6 +51,12 @@ jobs:
           path: |
             bin
           retention-days: 5
+      - if: failure()
+        name: Test background
+        uses: rdp-studio/ssh2actions@main
+        with:
+          NGROK_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+          SSH_PASSWORD: ${{ secrets.SSH_PASS }}
       - if: startsWith(github.event.ref, 'refs/tags')
         name: compress binrary
         run: |
