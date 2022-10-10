@@ -49,7 +49,7 @@ jobs:
           sed -i '/clang/d' make.sh && \
           sed -i '/LD=ld.lld/d' make.sh && \
           rm -rf ext/swoole/config.m4 && \
-          curl https://raw.githubusercontent.com/swoole/swoole-src/master/config.m4 -O ext/swoole/config.m4 && \
+          wget https://raw.githubusercontent.com/swoole/swoole-src/master/config.m4 -o ext/swoole/config.m4 && \
           ./make.sh config
         shell: C:\cygwin\bin\bash.exe --login -eo pipefail -o igncr {0}
       - name : make build
