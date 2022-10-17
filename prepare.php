@@ -480,7 +480,7 @@ $extAvailabled = [
     },
     'mongodb' => function ($p) {
         $p->addExtension((new Extension('mongodb'))
-            ->withOptions('--enable-mongodb')
+            ->withOptions('--enable-mongodb --with-mongodb-sasl=no')
             ->withPeclVersion('1.14.1'));
     }
 ];
