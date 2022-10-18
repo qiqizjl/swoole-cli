@@ -25,10 +25,7 @@ jobs:
           ln -s ${{ github.workspace }}/opt ${{ github.workspace }}/../
           ./prepare.php macos ${{ github.workspace }}/..
           chmod +x make.sh
-          brew uninstall --ignore-dependencies oniguruma
-          brew uninstall --ignore-dependencies brotli
-          brew uninstall --ignore-dependencies freetype
-          brew uninstall --ignore-dependencies libomp
+          brew uninstall --ignore-dependencies oniguruma brotli freetype libomp snappy zstd
           ln -s /usr/local/bin/glibtoolize /usr/local/bin/libtoolize
           brew install bison automake re2c
           rm -rf ../opt/usr/lib/*.dylib
