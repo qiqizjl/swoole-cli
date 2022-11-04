@@ -1326,7 +1326,7 @@ static void pcntl_siginfo_to_zval(int signo, siginfo_t *siginfo, zval *user_sigi
 			case SIGBUS:
 				add_assoc_double_ex(user_siginfo, "addr", sizeof("addr")-1, (zend_long)siginfo->si_addr);
 				break;
-#if defined(SIGPOLL) && !defined(__CYGWIN__)
+#ifdef SIGPOLL
 			case SIGPOLL:
 				add_assoc_long_ex(user_siginfo, "band", sizeof("band")-1, siginfo->si_band);
 # ifdef si_fd

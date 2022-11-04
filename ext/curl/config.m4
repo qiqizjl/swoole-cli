@@ -72,8 +72,7 @@ int main(int argc, char *argv[])
     AC_MSG_RESULT([no])
   fi
 
-   AC_DEFINE(HAVE_CURL,1,[ ])
-
+  AC_DEFINE(HAVE_CURL,1,[ ])
 
   PHP_NEW_EXTENSION(curl, interface.c multi.c share.c curl_file.c, $ext_shared)
   PHP_SUBST(CURL_SHARED_LIBADD)
